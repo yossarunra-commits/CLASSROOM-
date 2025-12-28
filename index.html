@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classroom V26 - 3 Column Admin Preview</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Kanit', sans-serif; background: #f1f5f9; }
+        .glass-nav { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .student-card:hover { transform: translateY(-2px); transition: all 0.2s; }
+        
+        @media print {
+            .no-print { display: none !important; }
+            #print-section { display: block !important; }
+            @page { size: A4; margin: 1cm; }
+            .page-wrapper {
+                page-break-after: always;
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 15px;
+            }
+        }
+        
+        #print-section { display: none; }
+        .qr-card-print {
+            border: 1px solid #000;
+            padding: 15px;
+            text-align: center;
+            border-radius: 10px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 280px;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <nav class="no-print glass-nav sticky top-0 z-50 border-b p-4 shadow-sm">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-black text-indigo-600">CLASSROOM V26 📋</h1>
+            <div class="flex gap-2">
+                <button onclick="location.reload()" class="px-4 py-2 hover:bg-slate-100 rounded-xl font-bold transition">🏠 หน้าแรก</button>
+                <button onclick="authAdmin()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold shadow-md hover:bg-indigo-700">⚙️ แผงจัดการ</button>
+            </div>
+        </div>
+    </nav>
+
+    <div id="main-content" class="max-w-7xl mx-auto p-4 no-print">
+        <div class="text-center py-24">
+            <h2 class="text-4xl font-black text-slate-800 mb-8 uppercase tracking-tighter">Student QR Management</h2>
+            <div class="max-w-md mx-auto bg-white p-10 rounded-[40px] shadow-2xl border-t-8 border-indigo-500">
+                <p class="text-slate-400 mb-6 font-medium">ระบุเลขประจำตัวเพื่อตรวจสอบบัตร</p>
+                <input type="text" id="search-id" placeholder="ID" class="w-full p-4 text-4xl font-black text-center border-2 rounded-2xl mb-6 outline-none focus:border-indigo-400 bg-slate-50">
+                <button onclick="searchStudent()" class="w-full py-5 bg-indigo-600 text-white rounded-2xl font-bold text-xl hover:shadow-lg active:scale-95 transition-all">🔍 ค้นหาข้อมูล</button>
+                <div id="search-result" class="mt-8"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="print-section">
+        <div id="qr-render-area"></div>
+        <div class="no-print flex flex-col items-center py-20 bg-slate-900 text-white">
+            <h3 class="text-2xl font-bold mb-4">ตรวจสอบความถูกต้องก่อนพิมพ์</h3>
+            <button onclick="window.print()" class="bg-green-500 hover:bg-green-600 text-white text-3xl font-black px-24 py-6 rounded-full shadow-2xl transition-all">
+                🖨️ สั่งพิมพ์ใบประกาศ
+            </button>
+            <button onclick="location.reload()" class="mt-6 text-slate-400 underline italic">กลับไปหน้าจัดการ</button>
+        </div>
+    </div>
+
+    <script>
+        const dbName = "ClassroomV26DB";
+        let db, students = [], rawData = [], keys = [];
+
+        const request = indexedDB.open(dbName, 1);
+        request.onupgradeneeded = (e) => {
+            db = e.target.result;
+            db.createObjectStore("students", { keyPath: "id" });
+        };
+        request.onsuccess = (e) => { db = e.target.result; loadFromDB(); };
+
+        function loadFromDB() {
+            const tx = db.transaction("students", "readonly");
+            const store = tx.objectStore("students");
+            const req = store.getAll();
+            req.onsuccess = () => { students = req.result; };
+        }
+
+        function authAdmin() {
+            if(prompt("รหัสผ่าน: (12345678)") === "12345678") renderAdmin();
+        }
+
+        function renderAdmin() {
+            const container = document.getElementById('main-content');
+            container.innerHTML = `
+                <div class="flex flex-col gap-6">
+                    <div class="flex justify-between items-end">
+                        <div>
+                            <h2 class="text-3xl font-black text-slate-800">⚙️ ระบบจัดการข้อมูล</h2>
+                            <p class="text-slate-500">นำเข้าข้อมูลและตรวจสอบความถูกต้องก่อนพิมพ์</p>
+                        </div>
+                        <button onclick="startPrint()" class="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition">🖨️ พิมพ์ QR ทั้งห้อง</button>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        <div class="lg:col-span-1 space-y-4">
+                            <div class="bg-white p-6 rounded-3xl shadow-md border-b-4 border-pink-400">
+                                <h3 class="font-bold mb-4">📂 นำเข้า Excel</h3>
+                                <input type="file" id="xlInput" class="hidden" onchange="readExcel(event)">
+                                <button onclick="document.getElementById('xlInput').click()" class="w-full py-3 bg-pink-50 text-pink-700 rounded-xl font-bold border border-pink-100 mb-3">เลือกไฟล์</button>
+                                
+                                <div id="mapping-panel" class="hidden space-y-3 mt-4 animate-in slide-in-from-top duration-300">
+                                    <select id="m-id" class="w-full p-2 text-xs border rounded-lg bg-slate-50"></select>
+                                    <select id="m-fname" class="w-full p-2 text-xs border rounded-lg bg-slate-50"></select>
+                                    <select id="m-lname" class="w-full p-2 text-xs border rounded-lg bg-slate-50"><option value="">-- ไม่แยกนามสกุล --</option></select>
+                                    <select id="m-nick" class="w-full p-2 text-xs border rounded-lg bg-slate-50"></select>
+                                    <select id="m-grade" class="w-full p-2 text-xs border rounded-lg bg-slate-50"></select>
+                                    
+                                    <p class="text-xs font-bold text-indigo-600 mt-4">เลือกรายวิชาเพิ่มเติม:</p>
+                                    <div id="subject-selectors" class="max-h-32 overflow-y-auto border rounded-lg p-2 bg-slate-50 text-[10px] space-y-1"></div>
+                                    
+                                    <button onclick="processData()" class="w-full py-3 bg-green-600 text-white rounded-xl font-bold mt-4 shadow-md">✅ บันทึก</button>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-3xl shadow-md border-b-4 border-indigo-400">
+                                <h3 class="font-bold mb-4">🖼️ อัปโหลดรูปภาพ</h3>
+                                <input type="file" id="phInput" class="hidden" multiple onchange="uploadPhotos(event)">
+                                <button onclick="document.getElementById('phInput').click()" class="w-full py-3 bg-indigo-50 text-indigo-700 rounded-xl font-bold border border-indigo-100">เลือกรูป (ตั้งชื่อ=รหัส)</button>
+                            </div>
+                        </div>
+
+                        <div class="lg:col-span-3">
+                            <div class="bg-white p-6 rounded-3xl shadow-md min-h-[600px]">
+                                <h3 class="font-bold text-slate-400 mb-6 uppercase tracking-widest text-sm">Preview: 3 Columns Grid</h3>
+                                <div id="student-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                    ${students.length === 0 ? '<div class="col-span-full py-20 text-center text-slate-300 font-bold">ยังไม่มีข้อมูลนักเรียน</div>' : 
+                                    students.map(s => `
+                                        <div class="student-card bg-slate-50 p-4 rounded-2xl border flex flex-col items-center text-center relative">
+                                            <img src="${s.photo || 'https://via.placeholder.com/80'}" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm mb-2">
+                                            <div class="font-bold text-sm text-slate-800 leading-tight">${s.name}</div>
+                                            <div class="text-[10px] text-slate-500 mb-2">เล่น: ${s.nickname} | ${s.grade}</div>
+                                            <div class="flex flex-wrap justify-center gap-1 mb-3">
+                                                ${s.subjects.slice(0, 3).map(sub => `<span class="px-1.5 py-0.5 bg-indigo-100 text-indigo-600 rounded text-[8px] font-bold">${sub.split(':')[1]}</span>`).join('')}
+                                            </div>
+                                            <div id="miniqr-${s.id}" class="bg-white p-1 rounded border"></div>
+                                            <span class="absolute top-2 right-3 font-mono text-[9px] text-slate-300">#${s.id}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            // Render small QRs in preview
+            setTimeout(() => {
+                students.forEach(s => {
+                    const el = document.getElementById(`miniqr-${s.id}`);
+                    if(el) new QRCode(el, { text: s.id, width: 45, height: 45 });
+                });
+            }, 100);
+        }
+
+        function readExcel(e) {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const wb = XLSX.read(evt.target.result, { type: 'binary' });
+                rawData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+                keys = Object.keys(rawData[0]);
+                document.getElementById('mapping-panel').classList.remove('hidden');
+                ['m-id', 'm-fname', 'm-lname', 'm-nick', 'm-grade'].forEach(id => {
+                    const sel = document.getElementById(id);
+                    sel.innerHTML = (id === 'm-lname' ? '<option value="">-- ไม่แยกนามสกุล --</option>' : '') + 
+                                     keys.map(k => `<option value="${k}">${k}</option>`).join('');
+                });
+                const subBox = document.getElementById('subject-selectors');
+                subBox.innerHTML = keys.map(k => `
+                    <label class="flex items-center gap-2 p-1 hover:bg-white rounded"><input type="checkbox" name="scol" value="${k}"> <span>${k}</span></label>
+                `).join('');
+            };
+            reader.readAsBinaryString(e.target.files[0]);
+        }
+
+        async function processData() {
+            const m = (id) => document.getElementById(id).value;
+            const subCols = Array.from(document.querySelectorAll('input[name="scol"]:checked')).map(c => c.value);
+            students = rawData.map(s => ({
+                id: s[m('m-id')].toString().trim(),
+                name: m('m-lname') ? `${s[m('m-fname')]} ${s[m('m-lname')]}` : s[m('m-fname')],
+                nickname: s[m('m-nick')] || '-',
+                grade: s[m('m-grade')] || '-',
+                subjects: subCols.map(col => `${col}: ${s[col] || '-'}`),
+                photo: null
+            }));
+            const tx = db.transaction("students", "readwrite");
+            const store = tx.objectStore("students");
+            await store.clear();
+            for(let s of students) await store.put(s);
+            Swal.fire('บันทึกสำเร็จ', `พร้อมพรีวิว 3 คอลัมน์แล้ว`, 'success');
+            renderAdmin();
+        }
+
+        async function uploadPhotos(e) {
+            const files = Array.from(e.target.files);
+            const stdMap = new Map(students.map((s, i) => [s.id, i]));
+            Swal.fire({ title: 'กำลังโหลดรูป...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            for(let file of files) {
+                const id = file.name.split('.')[0].trim();
+                const idx = stdMap.get(id);
+                if(idx !== undefined) students[idx].photo = await resizeImg(file);
+            }
+            const tx = db.transaction("students", "readwrite");
+            const store = tx.objectStore("students");
+            for(let s of students) await store.put(s);
+            Swal.close();
+            renderAdmin();
+        }
+
+        function resizeImg(file) {
+            return new Promise(res => {
+                const r = new FileReader(); r.readAsDataURL(file);
+                r.onload = (ev) => {
+                    const img = new Image(); img.src = ev.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 200; canvas.height = (img.height * 200) / img.width;
+                        canvas.getContext('2d').drawImage(img, 0, 0, 200, canvas.height);
+                        res(canvas.toDataURL('image/jpeg', 0.8));
+                    }
+                }
+            });
+        }
+
+        async function startPrint() {
+            if(students.length === 0) return;
+            Swal.fire({ title: 'จัดเตรียมหน้าละ 9 ใบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            document.getElementById('main-content').classList.add('hidden');
+            document.getElementById('print-section').style.display = 'block';
+            const area = document.getElementById('qr-render-area');
+            area.innerHTML = '';
+            for (let i = 0; i < students.length; i += 9) {
+                const chunk = students.slice(i, i + 9);
+                const page = document.createElement('div');
+                page.className = "page-wrapper";
+                chunk.forEach(s => {
+                    const card = document.createElement('div');
+                    card.className = "qr-card-print";
+                    card.innerHTML = `
+                        <div style="font-size:16px; font-weight:bold;">${s.name}</div>
+                        <div style="font-size:12px; color:#555;">เล่น: ${s.nickname} | ${s.grade}</div>
+                        <div style="display:flex; justify-content:center; margin:10px 0;" id="qrp-${s.id}"></div>
+                        <div style="text-align:left; font-size:9px; border-top:1px solid #eee; padding-top:5px;">
+                            ${s.subjects.map(sub => `<div>• ${sub}</div>`).join('')}
+                        </div>
+                        <div style="font-size:10px; font-weight:bold; color:#4f46e5;">ID: ${s.id}</div>
+                    `;
+                    page.appendChild(card);
+                });
+                area.appendChild(page);
+                for(let s of chunk) new QRCode(document.getElementById(`qrp-${s.id}`), { text: s.id, width: 130, height: 130 });
+                await new Promise(r => setTimeout(r, 40));
+            }
+            Swal.close();
+        }
+
+        function searchStudent() {
+            const id = document.getElementById('search-id').value.trim();
+            const s = students.find(x => x.id === id);
+            const res = document.getElementById('search-result');
+            if(s) {
+                res.innerHTML = `
+                    <div class="bg-indigo-50 p-6 rounded-3xl animate-in zoom-in duration-300">
+                        <img src="${s.photo || 'https://via.placeholder.com/150'}" class="w-24 h-24 rounded-full mx-auto mb-4 object-cover border-4 border-white shadow-md">
+                        <h3 class="font-bold text-lg">${s.name}</h3>
+                        <p class="text-xs text-slate-500 mb-4">${s.nickname} | ${s.grade}</p>
+                        <div id="res-qr" class="inline-block p-2 bg-white rounded-xl shadow-inner mb-4"></div>
+                        <div class="text-left text-[10px] bg-white p-3 rounded-xl border space-y-1">
+                            ${s.subjects.map(sub => `<div>• ${sub}</div>`).join('')}
+                        </div>
+                    </div>
+                `;
+                new QRCode(document.getElementById('res-qr'), { text: s.id, width: 140, height: 140 });
+            } else { Swal.fire('ไม่พบรหัส', '', 'error'); }
+        }
+    </script>
+</body>
+</html>
