@@ -74,16 +74,17 @@
 
     <script>
         // --- 1. Firebase Config (ข้อมูลของคุณครู) ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyAJhpfPS7TCe3N1n6oWpFsWVQ7ipocv4kg",
-            authDomain: "classroom-9813f.firebaseapp.com",
-            databaseURL: "https://classroom-9813f-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "classroom-9813f",
-            storageBucket: "classroom-9813f.firebasestorage.app",
-            messagingSenderId: "222372566120",
-            appId: "1:222372566120:web:5fc3cbc43b03bcfa2557dd",
-            measurementId: "G-28LVS925CP"
-        };
+       // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+            const firebaseConfig = {
+                apiKey: "AIzaSyAJhpfPS7TCe3N1n6oWpFsWVQ7ipocv4kg",
+                authDomain: "classroom-9813f.firebaseapp.com",
+                databaseURL: "https://classroom-9813f-default-rtdb.asia-southeast1.firebasedatabase.app",
+                projectId: "classroom-9813f",
+                storageBucket: "classroom-9813f.firebasestorage.app",
+                messagingSenderId: "222372566120",
+                appId: "1:222372566120:web:5fc3cbc43b03bcfa2557dd",
+                measurementId: "G-28LVS925CP"
+                };
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
