@@ -3,66 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Classroom Online V31</title>
+    <title>Classroom Management Pro V32</title>
     
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/html5-qrcode"></script> <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
     
     <style>
         body { font-family: 'Kanit', sans-serif; background: #f1f5f9; }
         .glass-nav { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
-        
         @media print {
             .no-print { display: none !important; }
-            #print-section { display: block !important; background: white; }
+            #print-section { display: block !important; }
             @page { size: A4; margin: 1cm; }
-            .page-wrapper {
-                page-break-after: always;
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 15px;
-            }
+            .page-wrapper { page-break-after: always; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
         }
-        
         #print-section { display: none; }
-        .qr-card-print {
-            border: 1px solid #000;
-            padding: 15px;
-            text-align: center;
-            border-radius: 10px;
-            background: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            min-height: 290px;
-        }
+        .qr-card-print { border: 1px solid #000; padding: 15px; text-align: center; border-radius: 10px; background: white; display: flex; flex-direction: column; justify-content: space-between; min-height: 290px; }
+        #reader { width: 100%; max-width: 400px; margin: auto; border-radius: 20px; overflow: hidden; }
     </style>
 </head>
 <body class="min-h-screen">
 
     <nav class="no-print glass-nav sticky top-0 z-50 border-b p-4 shadow-sm">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <h1 class="text-xl font-black text-indigo-600">☁️ CLASSROOM Yossarun</h1>
+            <h1 class="text-xl font-black text-indigo-600">☁️ CLASSROOM V32</h1>
             <div class="flex gap-2">
                 <button onclick="location.reload()" class="px-4 py-2 hover:bg-slate-100 rounded-xl font-bold transition">หน้าแรก</button>
-                <button onclick="authAdmin()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold shadow-md hover:bg-indigo-700">จัดการระบบ</button>
+                <button onclick="authAdmin()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold shadow-md">จัดการระบบ</button>
             </div>
         </div>
     </nav>
 
+    <div id="print-toolbar" class="hidden fixed top-0 left-0 w-full bg-slate-900 text-white p-4 z-[100] flex justify-between items-center no-print">
+        <button onclick="closePrint()" class="bg-red-500 px-6 py-2 rounded-lg font-bold">← ย้อนกลับ</button>
+        <span class="font-bold">ตรวจสอบความถูกต้องก่อนสั่งพิมพ์</span>
+        <button onclick="window.print()" class="bg-indigo-500 px-8 py-2 rounded-lg font-bold italic">🖨️ สั่งพิมพ์ออกเครื่องพิมพ์</button>
+    </div>
+
     <div id="main-content" class="max-w-7xl mx-auto p-4 no-print">
-        <div class="text-center py-20">
-            <h2 class="text-4xl font-black text-slate-800 mb-4">ระบบบัตรนักเรียน จัดการชั้นเรียน</h2>
-            <div class="max-w-md mx-auto bg-white p-10 rounded-[40px] shadow-2xl border-t-8 border-indigo-500">
-                <input type="text" id="search-id" placeholder="เลขประจำตัว" class="w-full p-4 text-4xl font-black text-center border-2 rounded-2xl mb-6 outline-none bg-slate-50 focus:border-indigo-400">
-                <button onclick="searchStudent()" class="w-full py-5 bg-indigo-600 text-white rounded-2xl font-bold text-xl hover:shadow-lg transition-all">🔍 ตรวจสอบ</button>
-                <div id="search-result" class="mt-8"></div>
+        <div class="text-center py-10">
+            <h2 class="text-4xl font-black text-slate-800 mb-2">ระบบจัดการชั้นเรียน</h2>
+            <p class="text-slate-500 mb-8 italic">Search & Attendance System</p>
+            
+            <div class="max-w-md mx-auto bg-white p-8 rounded-[40px] shadow-2xl border-t-8 border-indigo-500">
+                <input type="text" id="search-id" placeholder="เลขประจำตัว" class="w-full p-4 text-3xl font-black text-center border-2 rounded-2xl mb-4 outline-none bg-slate-50 focus:border-indigo-400">
+                <button onclick="searchStudent()" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg hover:shadow-lg transition-all mb-4">🔍 ตรวจสอบ</button>
+                <div id="search-result"></div>
             </div>
         </div>
     </div>
@@ -72,41 +63,36 @@
     </div>
 
     <script>
-        // --- 1. Firebase Config (ข้อมูลของคุณครู) ---
-       // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-            const firebaseConfig = {
-                apiKey: "AIzaSyAJhpfPS7TCe3N1n6oWpFsWVQ7ipocv4kg",
-                authDomain: "classroom-9813f.firebaseapp.com",
-                databaseURL: "https://classroom-9813f-default-rtdb.asia-southeast1.firebasedatabase.app",
-                projectId: "classroom-9813f",
-                storageBucket: "classroom-9813f.firebasestorage.app",
-                messagingSenderId: "222372566120",
-                appId: "1:222372566120:web:5fc3cbc43b03bcfa2557dd",
-                measurementId: "G-28LVS925CP"
-                };
+        // --- 1. Firebase Configuration ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAJhpfPS7TCe3N1n6oWpFsWVQ7ipocv4kg",
+            authDomain: "classroom-9813f.firebaseapp.com",
+            databaseURL: "https://classroom-9813f-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "classroom-9813f",
+            storageBucket: "classroom-9813f.firebasestorage.app",
+            messagingSenderId: "222372566120",
+            appId: "1:222372566120:web:5fc3cbc43b03bcfa2557dd",
+            measurementId: "G-28LVS925CP"
+        };
 
-        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const cloudDB = firebase.database();
         let students = [];
-        let rawExcel = [];
+        let html5QrCode;
 
-        // Sync ข้อมูลจาก Cloud ทันทีที่โหลดหน้า
+        // Sync Data
         cloudDB.ref('students').on('value', (snapshot) => {
             const data = snapshot.val();
             students = data ? Object.values(data) : [];
         });
 
-        // --- 2. ฟังก์ชันล็อกอิน (Password Hidden) ---
+        // --- 2. Admin Authentication ---
         async function authAdmin() {
             const { value: password } = await Swal.fire({
-                title: 'ยืนยันสิทธิ์ผู้ดูแลระบบ',
+                title: 'ยืนยันสิทธิ์ผู้ดูแล',
                 input: 'password',
-                inputLabel: 'กรุณากรอกรหัสผ่านเพื่อจัดการข้อมูล',
                 inputPlaceholder: 'Password',
                 showCancelButton: true,
-                confirmButtonText: 'เข้าสู่ระบบ',
-                cancelButtonText: 'ยกเลิก',
                 confirmButtonColor: '#4f46e5'
             });
 
@@ -117,55 +103,71 @@
             }
         }
 
-        // --- 3. หน้าจัดการแอดมิน (3 คอลัมน์พรีวิว) ---
+        // --- 3. Admin Main Dashboard ---
         function renderAdmin() {
             const container = document.getElementById('main-content');
+            
+            // ดึงรายชื่อห้องและวิชาที่ไม่ซ้ำกัน
+            const grades = [...new Set(students.map(s => s.grade))].sort();
+            const subjects = students.length > 0 && students[0].subjects ? 
+                            students[0].subjects.map(sub => sub.split(':')[0]) : [];
+
             container.innerHTML = `
-                <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 pt-4 animate-in fade-in duration-500">
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 pt-4 animate-in fade-in">
                     <div class="lg:col-span-1 space-y-4">
+                        <div class="bg-white p-6 rounded-3xl shadow-md border-b-4 border-emerald-500">
+                            <h3 class="font-black text-emerald-600 mb-4">📍 ระบบเช็คชื่อ</h3>
+                            <select id="at-grade" class="w-full p-2 border rounded-lg mb-2 text-sm">
+                                <option value="">-- เลือกห้อง --</option>
+                                ${grades.map(g => `<option value="${g}">${g}</option>`).join('')}
+                            </select>
+                            <select id="at-subject" class="w-full p-2 border rounded-lg mb-4 text-sm">
+                                <option value="">-- เลือกวิชา --</option>
+                                ${subjects.map(s => `<option value="${s}">${s}</option>`).join('')}
+                            </select>
+                            <div id="reader" class="mb-4"></div>
+                            <button onclick="startScanner()" id="btn-scan" class="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-md hover:bg-emerald-700">📸 เปิดกล้องสแกน</button>
+                        </div>
+
                         <div class="bg-white p-6 rounded-3xl shadow-md border-b-4 border-pink-500">
-                            <h3 class="font-bold mb-4">1. นำเข้า Excel</h3>
+                            <h3 class="font-bold mb-4">📁 จัดการ Excel & Cloud</h3>
                             <input type="file" id="xlIn" class="hidden" onchange="handleExcel(event)">
-                            <button onclick="document.getElementById('xlIn').click()" class="w-full py-3 bg-pink-50 text-pink-700 rounded-xl font-bold border border-pink-100 mb-3">เลือกไฟล์</button>
-                            
-                            <div id="mapping-panel" class="hidden space-y-2 mt-4 p-3 bg-slate-50 rounded-xl">
-                                <p class="text-[10px] font-bold text-slate-500 uppercase">จับคู่ข้อมูล</p>
-                                <select id="m-id" class="w-full p-1 border rounded text-xs"></select>
-                                <select id="m-fname" class="w-full p-1 border rounded text-xs"></select>
-                                <select id="m-lname" class="w-full p-1 border rounded text-xs"><option value="">-- ไม่แยกนามสกุล --</option></select>
-                                <select id="m-nick" class="w-full p-1 border rounded text-xs"></select>
-                                <select id="m-grade" class="w-full p-1 border rounded text-xs"></select>
-                                <hr>
-                                <p class="text-[10px] font-bold text-indigo-500 mt-2">เลือกรายวิชาเพิ่มเติม:</p>
-                                <div id="sub-list" class="max-h-32 overflow-y-auto text-[10px] space-y-1"></div>
-                                <button onclick="saveToCloud()" class="w-full py-3 bg-green-600 text-white rounded-xl font-bold mt-4 shadow-md">บันทึกลง Cloud ☁️</button>
+                            <button onclick="document.getElementById('xlIn').click()" class="w-full py-2 bg-pink-50 text-pink-700 rounded-lg font-bold border border-pink-100 mb-2 text-sm">1. เลือกไฟล์ Excel</button>
+                            <div id="mapping-panel" class="hidden p-2 bg-slate-50 rounded-lg space-y-1 text-xs">
+                                <select id="m-id" class="w-full p-1 border rounded"></select>
+                                <select id="m-fname" class="w-full p-1 border rounded"></select>
+                                <select id="m-lname" class="w-full p-1 border rounded"><option value="">--ไม่แยกนามสกุล--</option></select>
+                                <select id="m-nick" class="w-full p-1 border rounded"></select>
+                                <select id="m-grade" class="w-full p-1 border rounded"></select>
+                                <button onclick="saveToCloud()" class="w-full py-2 bg-green-600 text-white rounded-lg font-bold mt-2">บันทึกลง Cloud</button>
                             </div>
-                        </div>
-                        <div class="bg-white p-6 rounded-3xl shadow-md border-b-4 border-indigo-500">
-                            <h3 class="font-bold mb-4">2. อัปโหลดรูปภาพ</h3>
                             <input type="file" id="phIn" class="hidden" multiple onchange="uploadPhotos(event)">
-                            <button onclick="document.getElementById('phIn').click()" class="w-full py-3 bg-indigo-50 text-indigo-700 rounded-xl font-bold border border-indigo-100">เลือกรูปภาพ</button>
+                            <button onclick="document.getElementById('phIn').click()" class="w-full py-2 bg-indigo-50 text-indigo-700 rounded-lg font-bold border border-indigo-100 mt-2 text-sm">2. อัปโหลดรูปภาพ</button>
                         </div>
-                        <button onclick="startPrint()" class="w-full py-5 bg-slate-800 text-white rounded-3xl font-black shadow-xl hover:bg-black transition-all">🖨️ พิมพ์ QR ทั้งหมด</button>
+
+                        <button onclick="startPrint()" class="w-full py-5 bg-slate-800 text-white rounded-3xl font-black shadow-xl hover:bg-black">🖨️ พิมพ์ QR ทั้งหมด</button>
                     </div>
 
-                    <div class="lg:col-span-3 bg-white p-8 rounded-3xl shadow-md min-h-[600px]">
-                        <h3 class="font-bold text-slate-400 mb-6 uppercase tracking-widest text-sm">Preview: 3 Columns Grid</h3>
+                    <div class="lg:col-span-3 bg-white p-6 rounded-3xl shadow-md min-h-[500px]">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-slate-400 uppercase text-sm tracking-widest">Dashboard พรีวิว</h3>
+                            <span class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">ทั้งหมด ${students.length} คน</span>
+                        </div>
                         <div id="preview-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                             ${students.map(s => `
-                                <div class="bg-slate-50 p-4 rounded-2xl border flex flex-col items-center text-center relative">
+                                <div class="bg-slate-50 p-4 rounded-2xl border flex flex-col items-center text-center relative hover:shadow-md transition">
                                     <img src="${s.photo || 'https://via.placeholder.com/80'}" class="w-16 h-16 rounded-full object-cover mb-2 border-2 border-white shadow-sm">
                                     <div class="font-bold text-sm truncate w-full">${s.name}</div>
-                                    <div class="text-[10px] text-pink-600 font-bold">ชื่อเล่น: ${s.nickname} | ${s.grade}</div>
-                                    <div class="text-[9px] text-slate-400 mt-2 mb-2 line-clamp-1">${s.subjects ? s.subjects.join(', ') : ''}</div>
-                                    <div id="mqr-${s.id}" class="bg-white p-1 rounded border"></div>
-                                    <span class="absolute top-2 right-3 text-[8px] text-slate-200">#${s.id}</span>
+                                    <div class="text-[10px] text-pink-600 font-bold">${s.nickname} | ${s.grade}</div>
+                                    <div id="mqr-${s.id}" class="bg-white p-1 rounded border my-2"></div>
+                                    <span class="absolute top-2 right-3 text-[8px] text-slate-300">#${s.id}</span>
                                 </div>
                             `).join('')}
                         </div>
                     </div>
                 </div>
             `;
+            // Render Mini QR
             setTimeout(() => {
                 students.forEach(s => {
                     const el = document.getElementById(`mqr-${s.id}`);
@@ -174,84 +176,71 @@
             }, 300);
         }
 
-        // --- 4. ฟังก์ชันหลัก (Excel, Cloud, Photos) ---
-        function handleExcel(e) {
-            const reader = new FileReader();
-            reader.onload = (evt) => {
-                const wb = XLSX.read(evt.target.result, { type: 'binary' });
-                rawExcel = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-                const keys = Object.keys(rawExcel[0]);
-                document.getElementById('mapping-panel').classList.remove('hidden');
-                
-                ['m-id', 'm-fname', 'm-lname', 'm-nick', 'm-grade'].forEach(id => {
-                    const sel = document.getElementById(id);
-                    sel.innerHTML = (id==='m-lname'?'<option value="">-- ไม่แยก --</option>':'') + 
-                                     keys.map(k=>`<option value="${k}">${k}</option>`).join('');
-                });
-                document.getElementById('sub-list').innerHTML = keys.map(k => `
-                    <label class="flex items-center gap-1 hover:bg-white p-1 rounded"><input type="checkbox" name="scol" value="${k}"> ${k}</label>
-                `).join('');
-            };
-            reader.readAsBinaryString(e.target.files[0]);
-        }
+        // --- 4. Attendance & QR Scanner ---
+        function startScanner() {
+            const grade = document.getElementById('at-grade').value;
+            const subject = document.getElementById('at-subject').value;
 
-        async function saveToCloud() {
-            const m = (id) => document.getElementById(id).value;
-            const subCols = Array.from(document.querySelectorAll('input[name="scol"]:checked')).map(c => c.value);
-            
-            const newStudents = rawExcel.map(s => ({
-                id: s[m('m-id')].toString().trim(),
-                name: m('m-lname') ? `${s[m('m-fname')]} ${s[m('m-lname')]}` : s[m('m-fname')],
-                nickname: s[m('m-nick')] || '-',
-                grade: s[m('m-grade')] || '-',
-                subjects: subCols.map(col => `${col}: ${s[col] || '-'}`),
-                photo: null
-            }));
-
-            Swal.fire({ title: 'กำลังซิงค์ขึ้น Cloud...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-            await cloudDB.ref('students').set(newStudents);
-            Swal.fire('สำเร็จ', 'ข้อมูลอัปเดตทุกเครื่องแล้ว', 'success');
-            renderAdmin();
-        }
-
-        async function uploadPhotos(e) {
-            const files = Array.from(e.target.files);
-            const stdMap = new Map(students.map((s, i) => [s.id, i]));
-            Swal.fire({ title: 'ประมวลผลรูปภาพ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-            
-            for(let file of files) {
-                const id = file.name.split('.')[0].trim();
-                const idx = stdMap.get(id);
-                if(idx !== undefined) {
-                    students[idx].photo = await resizeImg(file);
-                }
+            if(!grade || !subject) {
+                Swal.fire('แจ้งเตือน', 'กรุณาเลือก ห้อง และ วิชา ก่อนเริ่มสแกน', 'warning');
+                return;
             }
-            await cloudDB.ref('students').set(students);
-            Swal.fire('สำเร็จ', 'อัปโหลดรูปภาพครบถ้วน', 'success');
-            renderAdmin();
+
+            html5QrCode = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            
+            html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
+                checkAttendance(decodedText, grade, subject);
+            }).catch(err => Swal.fire('Error', 'ไม่สามารถเข้าถึงกล้องได้', 'error'));
+            
+            document.getElementById('btn-scan').innerHTML = "🛑 กำลังสแกน... (กดเพื่อหยุด)";
+            document.getElementById('btn-scan').onclick = stopScanner;
         }
 
-        function resizeImg(file) {
-            return new Promise(res => {
-                const r = new FileReader(); r.readAsDataURL(file);
-                r.onload = (e) => {
-                    const img = new Image(); img.src = e.target.result;
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = 150; canvas.height = (img.height * 150) / img.width;
-                        canvas.getContext('2d').drawImage(img, 0, 0, 150, canvas.height);
-                        res(canvas.toDataURL('image/jpeg', 0.6));
-                    }
-                }
+        function stopScanner() {
+            if(html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    document.getElementById('btn-scan').innerHTML = "📸 เปิดกล้องสแกน";
+                    document.getElementById('btn-scan').onclick = startScanner;
+                });
+            }
+        }
+
+        async function checkAttendance(studentId, grade, subject) {
+            const student = students.find(s => s.id === studentId.trim());
+            if(!student) return; // ไม่พบรหัสในระบบ
+            
+            // บันทึกเข้า Firebase Attendance Logs
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('th-TH');
+            const dateStr = now.toISOString().split('T')[0];
+
+            await cloudDB.ref(`attendance/${dateStr}/${grade}/${subject}/${studentId}`).set({
+                name: student.name,
+                time: timeStr,
+                status: 'Present'
+            });
+
+            Swal.fire({
+                title: 'เช็คชื่อสำเร็จ!',
+                text: `${student.name} (${student.nickname})`,
+                icon: 'success',
+                timer: 1000,
+                showConfirmButton: false,
+                toast: true,
+                position: 'top-end'
             });
         }
 
-        // --- 5. การพิมพ์และค้นหา ---
+        // --- 5. Print Mode Logic ---
         async function startPrint() {
             if(students.length === 0) return;
-            Swal.fire({ title: 'กำลังจัดหน้าละ 9 ใบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            Swal.fire({ title: 'กำลังจัดเตรียม...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            
             document.getElementById('main-content').classList.add('hidden');
+            document.getElementById('print-toolbar').classList.remove('hidden');
             document.getElementById('print-section').style.display = 'block';
+            
             const area = document.getElementById('qr-render-area');
             area.innerHTML = '';
 
@@ -278,7 +267,69 @@
                 await new Promise(r => setTimeout(r, 60));
             }
             Swal.close();
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        }
+
+        function closePrint() {
+            document.getElementById('main-content').classList.remove('hidden');
+            document.getElementById('print-toolbar').classList.add('hidden');
+            document.getElementById('print-section').style.display = 'none';
+        }
+
+        // --- 6. Helper Functions (Excel & Search) ---
+        function handleExcel(e) {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const wb = XLSX.read(evt.target.result, { type: 'binary' });
+                rawExcel = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+                const keys = Object.keys(rawExcel[0]);
+                document.getElementById('mapping-panel').classList.remove('hidden');
+                ['m-id', 'm-fname', 'm-lname', 'm-nick', 'm-grade'].forEach(id => {
+                    document.getElementById(id).innerHTML = (id==='m-lname'?'<option value="">--</option>':'') + keys.map(k=>`<option value="${k}">${k}</option>`).join('');
+                });
+            };
+            reader.readAsBinaryString(e.target.files[0]);
+        }
+
+        async function saveToCloud() {
+            const m = (id) => document.getElementById(id).value;
+            const newStudents = rawExcel.map(s => ({
+                id: s[m('m-id')].toString().trim(),
+                name: m('m-lname') ? `${s[m('m-fname')]} ${s[m('m-lname')]}` : s[m('m-fname')],
+                nickname: s[m('m-nick')] || '-',
+                grade: s[m('m-grade')] || '-',
+                subjects: Object.keys(s).filter(k => !['ID','รหัส','ชื่อ','นามสกุล','ชื่อเล่น','ห้อง'].includes(k)).map(k => `${k}: ${s[k]}`),
+                photo: null
+            }));
+            await cloudDB.ref('students').set(newStudents);
+            Swal.fire('ซิงค์สำเร็จ', '', 'success');
+            renderAdmin();
+        }
+
+        async function uploadPhotos(e) {
+            const files = Array.from(e.target.files);
+            for(let file of files) {
+                const id = file.name.split('.')[0].trim();
+                const idx = students.findIndex(s => s.id === id);
+                if(idx !== -1) students[idx].photo = await resizeImg(file);
+            }
+            await cloudDB.ref('students').set(students);
+            Swal.fire('อัปโหลดสำเร็จ', '', 'success');
+            renderAdmin();
+        }
+
+        function resizeImg(file) {
+            return new Promise(res => {
+                const r = new FileReader(); r.readAsDataURL(file);
+                r.onload = (e) => {
+                    const img = new Image(); img.src = e.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 150; canvas.height = (img.height * 150) / img.width;
+                        canvas.getContext('2d').drawImage(img, 0, 0, 150, canvas.height);
+                        res(canvas.toDataURL('image/jpeg', 0.6));
+                    }
+                }
+            });
         }
 
         function searchStudent() {
@@ -287,18 +338,15 @@
             const res = document.getElementById('search-result');
             if(s) {
                 res.innerHTML = `
-                    <div class="bg-indigo-50 p-6 rounded-3xl animate-in zoom-in duration-300 border">
+                    <div class="bg-indigo-50 p-6 rounded-3xl animate-in zoom-in border">
                         <img src="${s.photo || 'https://via.placeholder.com/150'}" class="w-24 h-24 rounded-full mx-auto mb-4 object-cover border-4 border-white shadow-md">
                         <h3 class="font-bold text-xl">${s.name}</h3>
                         <p class="text-sm text-slate-500 mb-4">${s.nickname} | ${s.grade}</p>
                         <div id="res-qr" class="inline-block p-2 bg-white rounded-xl shadow-inner mb-4 border"></div>
-                        <div class="text-left text-[10px] bg-white p-3 rounded-xl border space-y-1">
-                            ${s.subjects ? s.subjects.map(sub => `<div>• ${sub}</div>`).join('') : ''}
-                        </div>
                     </div>
                 `;
                 new QRCode(document.getElementById('res-qr'), { text: s.id, width: 140, height: 140 });
-            } else { Swal.fire('ไม่พบรหัสนี้', 'กรุณาตรวจสอบข้อมูลบน Cloud อีกครั้ง', 'error'); }
+            } else { Swal.fire('ไม่พบรหัสนี้', '', 'error'); }
         }
     </script>
 </body>
