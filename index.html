@@ -182,14 +182,17 @@
                     <h3 class="text-xl font-bold mb-4">💾 นำเข้าฐานข้อมูลนักเรียน</h3>
                     <input type="file" onchange="loadExcel(event)" class="w-full p-6 border-2 border-dashed rounded-2xl mb-4 bg-slate-50">
                     <div id="map-ui" class="hidden bg-white p-6 border rounded-2xl space-y-4">
-                        <p class="text-xs font-bold text-slate-400 uppercase">กรุณาเลือกหัวตารางให้ตรงกับข้อมูล</p>
-                        <div class="grid grid-cols-2 gap-4 text-sm">
-                            <div>รหัส: <select id="m-id" class="w-full p-2 border rounded"></select></div>
-                            <div>ชื่อ-สกุล: <select id="m-name" class="w-full p-2 border rounded"></select></div>
-                            <div>ห้อง: <select id="m-grade" class="w-full p-2 border rounded"></select></div>
-                        </div>
-                        <button onclick="saveMasterData()" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold">บันทึกข้อมูลทั้งหมด</button>
-                    </div>
+    <p class="text-xs font-bold text-slate-400 uppercase">กรุณาเลือกหัวตารางให้ตรงกับข้อมูล (5 คอลัมน์หลัก)</p>
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+        <div>รหัส: <select id="m-id" class="w-full p-2 border rounded"></select></div>
+        <div>ชื่อ: <select id="m-name" class="w-full p-2 border rounded"></select></div>
+        <div>นามสกุล: <select id="m-surname" class="w-full p-2 border rounded"></select></div>
+        <div>ชื่อเล่น: <select id="m-nickname" class="w-full p-2 border rounded"></select></div>
+        <div>ห้อง: <select id="m-grade" class="w-full p-2 border rounded"></select></div>
+    </div>
+    <p class="text-[10px] text-indigo-500">* คอลัมน์ที่เหลือจากนี้จะถูกบันทึกเป็นรายวิชาโดยอัตโนมัติ</p>
+    <button onclick="saveMasterData()" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold">บันทึกข้อมูลทั้งหมด</button>
+</div>
                 </div>
                 <div class="glass p-8 bg-slate-900 text-white text-center">
                     <h3 class="text-xl font-bold mb-4 text-indigo-400">📸 Sync รูปภาพนักเรียน</h3>
@@ -290,27 +293,65 @@
 
         // --- 2. MASTER DATA & PHOTOS ---
         function loadExcel(e) {
-            const r = new FileReader(); r.readAsBinaryString(e.target.files[0]);
-            r.onload = (evt) => {
-                const wb = XLSX.read(evt.target.result, { type: 'binary' });
-                rawXL = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-                const heads = Object.keys(rawXL[0]);
-                document.getElementById('map-ui').classList.remove('hidden');
-                ['m-id','m-name','m-grade'].forEach(id => {
-                    document.getElementById(id).innerHTML = heads.map(h => `<option value="${h}">${h}</option>`).join('');
-                });
-            };
-        }
+    const r = new FileReader(); 
+    r.readAsBinaryString(e.target.files[0]);
+    r.onload = (evt) => {
+        const wb = XLSX.read(evt.target.result, { type: 'binary' });
+        rawXL = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+        const heads = Object.keys(rawXL[0]);
+        document.getElementById('map-ui').classList.remove('hidden');
+        
+        // รายชื่อ ID ของ select ทั้งหมดที่ต้องใส่หัวตาราง Excel ลงไป
+        const selectors = ['m-id','m-name','m-surname','m-nickname','m-grade'];
+        selectors.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.innerHTML = heads.map(h => `<option value="${h}">${h}</option>`).join('');
+        });
+    };
+}
 
         async function saveMasterData() {
-            const cI = document.getElementById('m-id').value, cN = document.getElementById('m-name').value, cG = document.getElementById('m-grade').value;
-            const data = rawXL.map(row => {
-                const id = row[cI]?.toString().trim(); if(!id) return null;
-                const subs = {}; Object.keys(row).filter(k => ![cI,cN,cG,"เลขที่","ลำดับ"].includes(k)).forEach(k => subs[k] = row[k] || "");
-                return { id, name: row[cN], grade: row[cG]?.toString(), subjects: subs, photo: "" };
-            }).filter(d => d);
-            await db.ref('students').set(data); Swal.fire('สำเร็จ', 'อัปโหลดฐานข้อมูลแล้ว', 'success');
-        }
+    // 1. ดึงค่าหัวตารางที่เลือกจาก Dropdown
+    const cI = document.getElementById('m-id').value;
+    const cN = document.getElementById('m-name').value;
+    const cS = document.getElementById('m-surname').value;
+    const cNk = document.getElementById('m-nickname').value;
+    const cG = document.getElementById('m-grade').value;
+
+    const data = rawXL.map(row => {
+        const id = row[cI]?.toString().trim(); 
+        if(!id) return null;
+
+        // 2. แยกข้อมูลวิชา (เอาคอลัมน์ที่เหลือทั้งหมดที่ไม่ใช่ 5 คอลัมน์หลัก และ เลขที่/ลำดับ)
+        const subs = {}; 
+        const mainKeys = [cI, cN, cS, cNk, cG, "เลขที่", "ลำดับ"];
+        
+        Object.keys(row).forEach(k => {
+            if (!mainKeys.includes(k)) {
+                subs[k] = row[k] || ""; // เก็บเป็นรายวิชา
+            }
+        });
+
+        return { 
+            id: id, 
+            name: `${row[cN]} ${row[cS]}`, // รวมชื่อ-นามสกุลเข้าด้วยกันเพื่อแสดงผลในระบบง่ายๆ
+            firstName: row[cN],
+            lastName: row[cS],
+            nickname: row[cNk],
+            grade: row[cG]?.toString(), 
+            subjects: subs, 
+            photo: ""
+        };
+    }).filter(d => d);
+
+    // 3. บันทึกลง Firebase
+    try {
+        await db.ref('students').set(data); 
+        Swal.fire('สำเร็จ', 'นำเข้าข้อมูล 5 คอลัมน์หลักและวิชาที่เหลือเรียบร้อยแล้ว', 'success');
+    } catch (error) {
+        Swal.fire('ผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้', 'error');
+    }
+}
 
         async function handlePhotoUpload(e) {
             Swal.fire({ title: 'กำลังบันทึกรูปภาพ...', didOpen: () => Swal.showLoading() });
