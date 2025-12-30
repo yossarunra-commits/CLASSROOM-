@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Classroom OS V91 - Complete Edition</title>
+    <title>Classroom Yossarun - Complete Edition</title>
     
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
@@ -31,7 +31,7 @@
 <body>
 
     <nav class="bg-white/80 backdrop-blur-md sticky top-0 z-[100] border-b p-4 flex justify-between items-center no-print">
-        <h1 class="text-xl font-bold tracking-tight text-slate-800">CLASSROOM <span class="text-indigo-600">OS V91</span></h1>
+        <h1 class="text-xl font-bold tracking-tight text-slate-800">CLASSROOM <span class="text-indigo-600">Yossarun</span></h1>
         <div class="flex gap-2">
             <button onclick="location.reload()" class="p-2 bg-slate-100 rounded-lg">🔄</button>
             <button onclick="authAdmin()" class="bg-slate-900 text-white px-5 py-2 rounded-xl text-xs font-semibold uppercase hover:bg-indigo-600 transition-all">Teacher Mode</button>
@@ -60,7 +60,7 @@
                 <button onclick="showPage('admin-score')" class="glass p-8 bg-violet-600 text-white text-lg font-bold">📊 จัดการคะแนน</button>
                 <button onclick="showPage('admin-qr-print-tool')" class="glass p-8 bg-white text-slate-700 text-lg font-bold border-2">🖨️ พิมพ์ QR Code</button>
                 <button onclick="showPage('admin-donow')" class="glass p-8 bg-amber-400 text-white text-lg font-bold">⚡ กิจกรรม Do Now</button>
-                <button onclick="showPage('admin-master')" class="glass p-8 bg-slate-800 text-white text-lg font-bold italic">💾 Master Data</button>
+                <button onclick="showPage('admin-master')" class="glass p-8 bg-slate-800 text-white text-lg font-bold italic">💾 ข้อมูลนักเรียน</button>
             </div>
         </section>
 
@@ -403,7 +403,7 @@ function toggleScanner(on) {
             if(!std) {
                 return Swal.fire({
                     title: 'ไม่พบรหัส!',
-                    text: `รหัส ${sid} ไม่ได้ลงทะเบียนไว้ใน Master Data`,
+                    text: `รหัส ${sid} ไม่ได้ลงทะเบียนไว้ใน ข้อมูลนักเรียน`,
                     icon: 'error',
                     timer: 2000,
                     showConfirmButton: false
