@@ -234,6 +234,13 @@
                         <button onclick="saveDoNow(true)" class="flex-1 py-5 bg-emerald-500 text-white rounded-2xl font-bold text-xl hover:bg-emerald-600 transition-all">เปิดแสดงผล</button>
                         <button onclick="saveDoNow(false)" class="flex-1 py-5 bg-rose-500 text-white rounded-2xl font-bold text-xl hover:bg-rose-600 transition-all">ปิดระบบ</button>
                     </div>
+                    <div class="mt-10 glass p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold">คำตอบนักเรียน</h3>
+                        <button onclick="db.ref('donow_answers').remove()" class="text-xs text-rose-500 underline">ล้างคำตอบทั้งหมด</button>
+                    </div>
+                    <div id="dn-admin-monitor" class="space-y-2 max-h-60 overflow-y-auto"></div>
+                </div>
                 </div>
             </div>
         </section>
@@ -262,6 +269,14 @@
             <div id="content-border" class="glass p-12 border-t-[20px]">
                 <h2 id="content-title" class="text-4xl font-bold mb-10 italic"></h2>
                 <div id="content-area" class="space-y-6"></div>
+                <div id="dn-input-area" class="hidden mt-6 space-y-4">
+                <div id="dn-timer" class="text-center text-5xl font-black text-rose-600 mb-4"></div>
+                <textarea id="std-dn-answer" class="w-full p-4 border-2 rounded-2xl text-xl" placeholder="พิมพ์คำตอบของคุณที่นี่..."></textarea>
+                <button id="btn-dn-submit" onclick="submitDoNowAnswer()" disabled 
+            class="w-full py-4 bg-slate-400 text-white rounded-2xl font-bold text-xl transition-all">
+        รอส่งคำตอบ (180)
+    </button>
+</div>
             </div>
         </section>
 
@@ -600,6 +615,69 @@ function toggleScanner(on) {
             students.filter(s => s.grade === g).forEach(s => Object.entries(s.subjects || {}).forEach(([n, v]) => { if(v) subs.add(n); }));
             sel.innerHTML = `<option value="">-- เลือกวิชา --</option>` + Array.from(subs).map(s => `<option value="${s}">${s}</option>`).join('');
         }
+
+        async function showStdDoNow() {
+    const snap = await db.ref('donow').once('value');
+    const d = snap.val();
+    if (!d || !d.active) return Swal.fire('ไม่มีกิจกรรม');
+    
+    // แสดงโจทย์
+    renderContent('DO NOW', '#fbbf24', `<div class="p-8 rounded-3xl border-4 border-dashed border-amber-300 text-center font-bold text-3xl text-amber-700">${d.text}</div>`);
+    
+    // ตรวจสอบว่าเคยส่งหรือยัง
+    const check = await db.ref(`donow_answers/${currentSid}`).once('value');
+    if (check.exists()) {
+        document.getElementById('dn-input-area').innerHTML = '<p class="text-center text-emerald-600 font-bold text-xl">คุณส่งคำตอบแล้ว</p>';
+    } else {
+        document.getElementById('dn-input-area').classList.remove('hidden');
+        startDoNowTimer();
+    }
+}
+
+function startDoNowTimer() {
+    let count = 180;
+    const btn = document.getElementById('btn-dn-submit');
+    const timerEl = document.getElementById('dn-timer');
+    const interval = setInterval(() => {
+        timerEl.innerText = count;
+        btn.innerText = `รอส่งคำตอบ (${count})`;
+        if (count <= 0) {
+            clearInterval(interval);
+            timerEl.innerText = "";
+            btn.disabled = false;
+            btn.innerText = "ส่งคำตอบได้";
+            btn.classList.replace('bg-slate-400', 'bg-emerald-500');
+        }
+        count--;
+    }, 1000);
+}
+
+async function submitDoNowAnswer() {
+    const ans = document.getElementById('std-dn-answer').value;
+    if (!ans) return Swal.fire('กรุณาพิมพ์คำตอบ');
+    
+    await db.ref(`donow_answers/${currentSid}`).set({
+        name: students.find(s => s.id === currentSid).name,
+        answer: ans,
+        timestamp: Date.now()
+    });
+    
+    Swal.fire('สำเร็จ', 'ส่งคำตอบเรียบร้อยแล้ว', 'success');
+    showPage('std-dashboard');
+}
+
+// เพิ่มในฟังก์ชันที่เรียกตอนเปิดหน้า Admin Do Now
+db.ref('donow_answers').on('value', snap => {
+    const data = snap.val() || {};
+    let html = "";
+    Object.values(data).forEach(a => {
+        html += `<div class="p-3 bg-slate-50 rounded-lg border-b flex justify-between">
+                    <span class="font-bold text-indigo-600">${a.name}:</span>
+                    <span>${a.answer}</span>
+                 </div>`;
+    });
+    document.getElementById('dn-admin-monitor').innerHTML = html || "ยังไม่มีคำตอบส่งมา";
+});
     </script>
 </body>
 </html>
