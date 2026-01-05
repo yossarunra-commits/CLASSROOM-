@@ -141,6 +141,8 @@
                     <select id="st-grade" onchange="updateSubFilter(this.value, 'st-sub')" class="p-4 border rounded-2xl flex-1"></select>
                     <select id="st-sub" class="p-4 border rounded-2xl flex-1"></select>
                     <button onclick="generateStatsReport()" class="px-10 py-4 bg-indigo-600 text-white rounded-2xl font-bold">ประมวลผล</button>
+                    <button onclick="showSessionEditor()" class="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all ml-2">🔍 ดู/แก้ไข รายคาบ</button>
+                    <button onclick="resetAttendance()" class="px-10 py-4 bg-rose-600 text-white rounded-2xl font-bold hover:bg-rose-700 transition-all"> ⚠️ รีเซ็ตข้อมูล</button>
                     <button onclick="exportStatsCSV()" class="px-10 py-4 bg-emerald-600 text-white rounded-2xl font-bold">Export CSV</button>
                 </div>
             </div>
@@ -233,6 +235,10 @@
                     <div class="flex gap-4">
                         <button onclick="saveDoNow(true)" class="flex-1 py-5 bg-emerald-500 text-white rounded-2xl font-bold text-xl hover:bg-emerald-600 transition-all">เปิดแสดงผล</button>
                         <button onclick="saveDoNow(false)" class="flex-1 py-5 bg-rose-500 text-white rounded-2xl font-bold text-xl hover:bg-rose-600 transition-all">ปิดระบบ</button>
+                        <button onclick="viewDoNowAnswers()" 
+                        class="p-4 bg-amber-500 text-white rounded-2xl font-bold shadow-lg hover:bg-amber-600 transition-all flex flex-col items-center gap-2">
+                        <span class="text-2xl">⚡</<span>ดูคำตอบ Do Now</span>
+                    </button>
                     </div>
                     <div class="mt-10 glass p-6">
                     <div class="flex justify-between items-center mb-4">
@@ -265,20 +271,24 @@
         </section>
 
         <section id="page-std-content-view" class="page">
-            <button onclick="showPage('std-subject-menu')" class="mb-4 font-bold text-slate-400">← ย้อนกลับ</button>
-            <div id="content-border" class="glass p-12 border-t-[20px]">
-                <h2 id="content-title" class="text-4xl font-bold mb-10 italic"></h2>
-                <div id="content-area" class="space-y-6"></div>
-                <div id="dn-input-area" class="hidden mt-6 space-y-4">
-                <div id="dn-timer" class="text-center text-5xl font-black text-rose-600 mb-4"></div>
-                <textarea id="std-dn-answer" class="w-full p-4 border-2 rounded-2xl text-xl" placeholder="พิมพ์คำตอบของคุณที่นี่..."></textarea>
-                <button id="btn-dn-submit" onclick="submitDoNowAnswer()" disabled 
-            class="w-full py-4 bg-slate-400 text-white rounded-2xl font-bold text-xl transition-all">
-        รอส่งคำตอบ (180)
-    </button>
-</div>
-            </div>
-        </section>
+    <button onclick="showPage('std-subject-menu')" class="mb-4 font-bold text-slate-400">← ย้อนกลับ</button>
+    <div class="glass p-12 border-t-[20px] border-amber-400">
+        <h2 id="content-title" class="text-4xl font-bold mb-10 italic text-amber-600"></h2>
+        <div id="content-area" class="text-2xl mb-6"></div>
+
+        <div id="dn-wrapper" style="display: none;"> 
+            <div id="dn-timer" class="text-center text-5xl font-black text-rose-600 mb-4">180</div>
+            <textarea id="std-dn-answer" 
+                class="w-full p-4 border-2 border-amber-200 rounded-2xl text-xl bg-white shadow-inner" 
+                rows="4" placeholder="พิมพ์คำตอบของคุณที่นี่..."></textarea>
+            <button id="btn-dn-submit" onclick="submitDoNowAnswer()" disabled 
+                class="w-full py-4 bg-slate-400 text-white rounded-2xl font-bold text-xl transition-all shadow-lg mt-4">
+                รอส่งคำตอบ (180)
+            </button>
+        </div>
+    </div>
+</section>
+        
 
     </main>
 
@@ -401,113 +411,248 @@
             currentSes = data; document.getElementById('ses-label').innerHTML = `🔴 กำลังสแกน: <span class="text-indigo-600 font-black underline">${sub} [ห้อง ${gr}]</span>`;
         }
 
-        // --- ส่วนที่ปรับปรุงใหม่ในระบบสแกน (Scanner Engine V92) ---
-function toggleScanner(on) {
+        async function toggleScanner(on) {
     if(!currentSes) return Swal.fire('แจ้งเตือน', 'กรุณากดปุ่ม [เริ่มระบบ Global Sync] ก่อนสแกน', 'warning');
     
+    // เตรียมข้อมูล Path ล่วงหน้า
+    const cleanGr = currentSes.grade.replace(/[.#$[\]]/g, "_");
+    const cleanSub = currentSes.subject.replace(/[.#$[\]]/g, "_");
+    const aid = currentSes.id;
+
     if(on) {
+        // ล้าง Instance เก่าถ้ามีค้างอยู่
+        if(html5Qr) { try { await html5Qr.clear(); } catch(e) {} }
+        
         html5Qr = new Html5Qrcode("reader");
         document.getElementById('btn-on').disabled = true; 
         document.getElementById('btn-off').disabled = false;
         
-        html5Qr.start({ facingMode: "environment" }, { fps: 20, qrbox: 250 }, async (code) => {
+        // config ที่เหมาะสมกับ Samsung (เพิ่ม focusMode)
+        const config = { 
+            fps: 20, 
+            qrbox: { width: 250, height: 250 }, 
+            aspectRatio: 1.0,
+            videoConstraints: { focusMode: "continuous" } 
+        };
+
+        html5Qr.start({ facingMode: "environment" }, config, async (code) => {
+            // --- [1] หยุดสแกนชั่วคราวทันทีที่เจอ QR เพื่อลดภาระเครื่อง ---
+            html5Qr.pause(true); 
+
             const sid = code.trim(); 
-            const std = students.find(s => s.id === sid);
+            const std = students.find(s => String(s.id) === sid);
             
-            // 1. ตรวจสอบว่ามีรหัสนี้ในฐานข้อมูลไหม
+            // --- [2] ตรวจสอบข้อมูล ---
             if(!std) {
-                return Swal.fire({
-                    title: 'ไม่พบรหัส!',
-                    text: `รหัส ${sid} ไม่ได้ลงทะเบียนไว้ใน ข้อมูลนักเรียน`,
-                    icon: 'error',
-                    timer: 2000,
-                    showConfirmButton: false
-                });
+                if(window.soundError) soundError.play();
+                await Swal.fire({ title: 'ไม่พบรหัส!', icon: 'error', timer: 1500, showConfirmButton: false });
+                html5Qr.resume(); // กลับมาสแกนต่อ
+                return;
             }
 
-            // 2. ตรวจสอบว่าอยู่ห้องเดียวกับที่กำลังสอนไหม
             if(std.grade !== currentSes.grade) {
-                return Swal.fire({
-                    title: 'ผิดห้อง!',
-                    text: `${std.name} อยู่ห้อง ${std.grade} (คาบนี้คือห้อง ${currentSes.grade})`,
-                    icon: 'warning',
-                    timer: 2000,
-                    showConfirmButton: false
+                if(window.soundError) soundError.play();
+                await Swal.fire({ 
+                    title: 'ผิดห้อง!', 
+                    text: `${std.name} อยู่ห้อง ${std.grade}`, 
+                    icon: 'warning', 
+                    timer: 1500, 
+                    showConfirmButton: false 
                 });
+                html5Qr.resume();
+                return;
             }
 
-            // 3. ตรวจสอบว่าเช็คไปหรือยัง (Check Duplicate)
-            const checkSnap = await db.ref(`attendance/${currentSes.id}/${std.id}`).once('value');
-            if(checkSnap.exists()) {
-                return Swal.fire({
-                    title: 'เช็คไปแล้ว!',
-                    text: `${std.name} ลงชื่อเรียบร้อยแล้ว`,
-                    icon: 'info',
-                    timer: 1000,
-                    showConfirmButton: false
-                });
-            }
-
-            // 4. บันทึกลงระบบ
+            // --- [3] บันทึกลง Firebase ---
             const now = new Date(); 
             const timeStr = now.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' });
             const [sH, sM] = currentSes.start.split(':'); 
             const startTime = new Date(currentSes.date); 
-            startTime.setHours(sH, sM, 0);
-            
+            startTime.setHours(parseInt(sH), parseInt(sM), 0);
             const status = ((now - startTime) / 60000) > 15 ? "สาย" : "มา";
             
-            await db.ref(`attendance/${currentSes.id}/${std.id}`).set({ 
-                name: std.name, 
-                time: timeStr, 
-                status: status 
-            });
+            try {
+                await db.ref(`attendance/${cleanGr}/${cleanSub}/${aid}/${std.id}`).set({ 
+                    name: std.name, 
+                    time: timeStr, 
+                    status: status 
+                });
 
-            // แจ้งเตือนสำเร็จ
-            Swal.fire({
-                title: `<span class="text-indigo-600">${std.name}</span>`,
-                html: `<b class="text-2xl">${status}</b><br>เวลา ${timeStr}`,
-                icon: 'success',
-                timer: 800,
-                showConfirmButton: false,
-                position: 'top'
-            });
+                // --- [4] แสดง Pop-up สำเร็จ (รูปภาพใหญ่ขึ้น) ---
+                if(window.soundSuccess) soundSuccess.play();
+                
+                await Swal.fire({
+                    title: `<span class="${status === 'มา' ? 'text-emerald-600' : 'text-amber-500'} font-black text-3xl">${status === "มา" ? "✅ มาเรียน" : "⏳ มาสาย"}</span>`,
+                    html: `
+                        <div class="flex flex-col items-center mt-2">
+                            <img src="${std.photo || `https://api.dicebear.com/7.x/initials/svg?seed=${std.id}`}" 
+                                 class="w-56 h-56 rounded-[2.5rem] object-cover border-8 border-white shadow-2xl mb-4">
+                            <div class="text-4xl font-black text-slate-800">${std.name}</div>
+                            <div class="text-xl font-bold text-slate-400 mt-1">เวลาบันทึก: ${timeStr}</div>
+                        </div>`,
+                    timer: 2000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
+                    backdrop: `rgba(0,0,0,0.4)`
+                });
+
+            } catch (err) {
+                console.error("Save Error:", err);
+            }
+
+            // --- [5] เมื่อ Pop-up หายไป ให้เริ่มสแกนคนต่อไป ---
+            html5Qr.resume();
 
         }).catch(err => {
-            console.error(err);
-            Swal.fire('กล้องขัดข้อง', 'โปรดตรวจสอบการอนุญาตใช้งานกล้อง', 'error');
+            console.error("Camera Error:", err);
+            Swal.fire('กล้องขัดข้อง', 'โปรดใช้ Chrome/Samsung Internet และอนุญาตสิทธิ์กล้อง (HTTPS)', 'error');
+            document.getElementById('btn-on').disabled = false;
         });
     } else { 
         if(html5Qr) {
             html5Qr.stop().then(() => { 
                 document.getElementById('btn-on').disabled = false; 
                 document.getElementById('btn-off').disabled = true; 
-            });
+            }).catch(e => console.error("Stop Error:", e));
         }
     }
 }
 
+// --- 2. ส่วนของจอมอนิเตอร์ (Monitor Pop-up) ---
+function startGlobalMonitor() {
+    db.ref(`global/activeSessionID`).on('value', snap => {
+        const aid = snap.val(); if(!aid) return;
+        
+        db.ref(`sessions/${aid}`).once('value', sSnap => {
+            const ses = sSnap.val(); if(!ses) return;
+
+            const cleanGr = ses.grade.replace(/[.#$[\]]/g, "_");
+            const cleanSub = ses.subject.replace(/[.#$[\]]/g, "_");
+
+            // ติดตามการเช็คชื่อแบบ Real-time
+            db.ref(`attendance/${cleanGr}/${cleanSub}/${aid}`).on('value', aSnap => {
+                const att = aSnap.val() || {};
+                const room = students.filter(s => s.grade === ses.grade).sort((a,b) => a.id - b.id);
+                
+                let p=0, l=0, a=0, html="";
+                room.forEach(s => {
+                    const d = att[s.id];
+                    let cls = "bg-rose-50 text-rose-600 border-rose-100", stTxt = "ขาด", tTxt = "-";
+                    if(d) {
+                        if(d.status === "สาย") { cls="bg-amber-50 text-amber-800"; stTxt="สาย"; l++; }
+                        else { cls="bg-emerald-50 text-emerald-800"; stTxt="มา"; p++; }
+                        tTxt = d.time;
+                    } else a++;
+
+                    html += `
+                        <div class="flex items-center p-3 rounded-2xl border ${cls}">
+                            <img src="${s.photo || `https://api.dicebear.com/7.x/initials/svg?seed=${s.id}`}" class="w-16 h-16 rounded-xl mr-4 object-cover">
+                            <div><div class="font-black text-lg">${s.name}</div><div class="text-xs">${stTxt} ${tTxt}</div></div>
+                        </div>`;
+                });
+                document.getElementById('monitor-grid').innerHTML = html;
+            });
+
+            // --- ส่วนที่ทำให้ Pop-up เด้งบนจอมอนิเตอร์ใหญ่ ---
+            db.ref(`attendance/${cleanGr}/${cleanSub}/${aid}`).limitToLast(1).on('child_added', (snapshot) => {
+                const studentId = snapshot.key;
+                const data = snapshot.val();
+                const std = students.find(x => x.id === studentId);
+                
+                if (std && data) {
+                    Swal.fire({
+                        title: `<div class="text-4xl font-black text-emerald-600">สแกนสำเร็จ</div>`,
+                        html: `
+                            <div class="p-4">
+                                <img src="${std.photo || `https://api.dicebear.com/7.x/initials/svg?seed=${std.id}`}" class="w-64 h-64 mx-auto rounded-[3rem] object-cover border-8 border-white shadow-2xl mb-6">
+                                <div class="text-5xl font-black mb-2">${std.name}</div>
+                                <div class="text-2xl text-slate-500 font-bold">เวลา: ${data.time}</div>
+                            </div>`,
+                        timer: 2500,
+                        showConfirmButton: false,
+                        backdrop: `rgba(0,123,255,0.2)`
+                    });
+                }
+            });
+        });
+    });
+}
+
         // --- 4. LIVE MONITOR ---
         function startGlobalMonitor() {
-            db.ref(`global/activeSessionID`).on('value', snap => {
-                const aid = snap.val(); if(!aid) return;
-                db.ref(`sessions/${aid}`).once('value', sSnap => {
-                    const ses = sSnap.val(); document.getElementById('mon-sub-title').innerText = "วิชา: " + ses.subject;
-                    document.getElementById('mon-ses-info').innerText = `ห้อง ${ses.grade} | วันที่ ${ses.fullDate}`;
-                    db.ref(`attendance/${aid}`).on('value', aSnap => {
-                        const att = aSnap.val() || {}; const room = students.filter(s => s.grade === ses.grade).sort((a,b)=>a.id-b.id);
-                        let p=0, l=0, a=0, html="";
-                        room.forEach(s => {
-                            const d = att[s.id]; let cls = "status-absent", t = "-";
-                            if(d) { if(d.status==="สาย"){cls="status-late";l++;}else{cls="status-present";p++;} t=d.time; } else a++;
-                            html += `<div class="p-3 text-center glass rounded-2xl ${cls}"><img src="${s.photo||`https://api.dicebear.com/7.x/initials/svg?seed=${s.id}`}" class="w-12 h-12 mx-auto rounded-xl object-cover mb-2 border-2 border-white shadow-sm"><div class="text-[10px] font-bold truncate">${s.name}</div><div class="text-[9px] opacity-60">${t}</div></div>`;
-                        });
-                        document.getElementById('monitor-grid').innerHTML = html;
-                        document.getElementById('mon-count-present').innerText = p; document.getElementById('mon-count-late').innerText = l; document.getElementById('mon-count-absent').innerText = a;
-                    });
-                });
-            });
+        db.ref(`global/activeSessionID`).on('value', snap => {
+        const aid = snap.val(); 
+        if(!aid) {
+            document.getElementById('mon-sub-title').innerText = "รอการเปิดคาบเรียน...";
+            return;
         }
+        
+        db.ref(`sessions/${aid}`).once('value', sSnap => {
+            const ses = sSnap.val();
+            if(!ses) return;
+
+            document.getElementById('mon-sub-title').innerText = "วิชา: " + ses.subject;
+            document.getElementById('mon-ses-info').innerText = `ห้อง ${ses.grade} | วันที่ ${ses.fullDate || ses.date}`;
+
+            const cleanGr = ses.grade.replace(/[.#$[\]]/g, "_");
+            const cleanSub = ses.subject.replace(/[.#$[\]]/g, "_");
+
+            db.ref(`attendance/${cleanGr}/${cleanSub}/${aid}`).on('value', aSnap => {
+                const att = aSnap.val() || {};
+                const room = students.filter(s => s.grade === ses.grade).sort((a,b) => (a.id || 0) - (b.id || 0));
+                
+                let p=0, l=0, a=0, html="";
+
+                room.forEach(s => {
+                    const d = att[s.id];
+                    let cls = "bg-rose-50 border-rose-200 text-rose-700"; // ขาด
+                    let statusTxt = "❌ ขาดเรียน";
+                    let timeTxt = "--:--";
+                    
+                    if(d) {
+                        if(d.status === "สาย") {
+                            cls = "bg-amber-50 border-amber-300 text-amber-800";
+                            statusTxt = "⏳ มาสาย";
+                            l++;
+                        } else {
+                            cls = "bg-emerald-50 border-emerald-300 text-emerald-800";
+                            statusTxt = "✅ มาเรียน";
+                            p++;
+                        }
+                        timeTxt = d.time || "";
+                    } else { a++; }
+
+                    // --- ปรับ UI เป็น 2 คอลัมน์ (รูปซ้าย ข้อมูลขวา) ---
+                    html += `
+                        <div class="flex items-center p-4 rounded-3xl border-2 shadow-sm transition-all ${cls}">
+                            <div class="flex-shrink-0 mr-6">
+                                <img src="${s.photo || `https://api.dicebear.com/7.x/initials/svg?seed=${s.id}`}" 
+                                     class="w-32 h-32 rounded-2xl object-cover border-4 border-white shadow-md">
+                            </div>
+                            
+                            <div class="flex-grow overflow-hidden">
+                                <div class="text-3xl font-black truncate">${s.name}</div>
+                                <div class="text-xl font-bold opacity-70 mb-2">ID: ${s.id}</div>
+                                <div class="inline-flex items-center px-4 py-1 rounded-full bg-white bg-opacity-60">
+                                    <span class="text-2xl font-black uppercase">${statusTxt}</span>
+                                    <span class="ml-3 text-lg font-bold opacity-80">${timeTxt}</span>
+                                </div>
+                            </div>
+                        </div>`;
+                });
+
+                // ตั้งค่า Grid เป็น 2 คอลัมน์ (บนคอม)
+                const grid = document.getElementById('monitor-grid');
+                grid.className = "grid grid-cols-1 xl:grid-cols-2 gap-6 p-6"; 
+                grid.innerHTML = html;
+                
+                document.getElementById('mon-count-present').innerText = p;
+                document.getElementById('mon-count-late').innerText = l;
+                document.getElementById('mon-count-absent').innerText = a;
+            });
+        });
+    });
+}
 
         // --- 5. SCORE & TRACKING ---
         function downloadScoreTpl() {
@@ -545,22 +690,49 @@ function toggleScanner(on) {
 
         // --- 6. ADVANCED STATS ---
         async function generateStatsReport() {
-            const gr = document.getElementById('st-grade').value, sub = document.getElementById('st-sub').value;
-            const sSnap = await db.ref('sessions').once('value'); const aSnap = await db.ref('attendance').once('value');
-            const sess = Object.values(sSnap.val() || {}).filter(s => s.grade === gr && s.subject === sub);
-            const att = aSnap.val() || {}; const room = students.filter(s => s.grade === gr).sort((a,b)=>a.id-b.id);
-            let html = "", tP=0, tL=0, tA=0;
-            room.forEach((s, idx) => {
-                let p=0, l=0, a=0;
-                sess.forEach(ses => { const r = att[ses.id]?.[s.id]; if(!r) a++; else if(r.status==="สาย") l++; else p++; });
-                const per = sess.length > 0 ? (((p+l)/sess.length)*100).toFixed(0) : 0;
-                tP+=p; tL+=l; tA+=a;
-                html += `<tr><td>${idx+1}</td><td>${s.id}</td><td class="text-left font-medium">${s.name}</td><td class="status-present font-bold">${p}</td><td class="status-late font-bold">${l}</td><td class="status-absent font-bold">${a}</td><td class="font-bold ${per<80?'text-rose-600':'text-emerald-600'}">${per}%</td></tr>`;
-            });
-            document.getElementById('stats-table-body').innerHTML = html;
-            document.getElementById('stats-area').classList.remove('hidden');
-            document.getElementById('stats-summary-cards').innerHTML = `<div class="glass p-4 text-center border-l-8 border-emerald-500"><div>มาเรียนสะสม</div><div class="text-3xl font-bold">${tP}</div></div><div class="glass p-4 text-center border-l-8 border-orange-500"><div>มาสายสะสม</div><div class="text-3xl font-bold">${tL}</div></div><div class="glass p-4 text-center border-l-8 border-rose-500"><div>ขาดสะสม</div><div class="text-3xl font-bold">${tA}</div></div>`;
-        }
+    const gr = document.getElementById('st-grade').value;
+    const sub = document.getElementById('st-sub').value;
+    
+    // --- จุดสำคัญ: ต้องล้างชื่อห้องให้เหมือนกับหน้าแก้ไข ---
+    const cleanGr = gr.replace(/[.#$[\]]/g, "_");
+    const cleanSub = sub.replace(/[.#$[\]]/g, "_");
+
+    Swal.fire({ title: 'กำลังประมวลผล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+    // 1. ดึงข้อมูลจาก Firebase (ดึงเจาะจงที่อยู่ข้อมูลที่แก้ไป)
+    const sSnap = await db.ref('sessions').once('value'); 
+    const aSnap = await db.ref(`attendance/${cleanGr}/${cleanSub}`).once('value');
+    
+    const sess = Object.values(sSnap.val() || {}).filter(s => s.grade === gr && s.subject === sub);
+    const att = aSnap.val() || {}; 
+    const room = students.filter(s => s.grade === gr).sort((a,b)=>a.id-b.id);
+    
+    let html = "", tP=0, tL=0, tA=0;
+
+    room.forEach((s, idx) => {
+        let p=0, l=0, a=0;
+        sess.forEach(ses => { 
+            // ดึงสถานะจากตัวแปร att ที่เราเพิ่งดึงมา
+            const r = att[ses.id]?.[s.id]; 
+            if(!r || r.status === "ขาด") a++; 
+            else if(r.status === "สาย") l++; 
+            else p++; 
+        });
+        
+        const per = sess.length > 0 ? (((p+l)/sess.length)*100).toFixed(0) : 0;
+        tP+=p; tL+=l; tA+=a;
+        html += `<tr><td>${idx+1}</td><td>${s.id}</td><td class="text-left font-medium">${s.name}</td><td class="status-present font-bold">${p}</td><td class="status-late font-bold">${l}</td><td class="status-absent font-bold">${a}</td><td class="font-bold ${per<80?'text-rose-600':'text-emerald-600'}">${per}%</td></tr>`;
+    });
+
+    document.getElementById('stats-table-body').innerHTML = html;
+    document.getElementById('stats-area').classList.remove('hidden');
+    document.getElementById('stats-summary-cards').innerHTML = `
+        <div class="glass p-4 text-center border-l-8 border-emerald-500"><div>มาเรียนสะสม</div><div class="text-3xl font-bold">${tP}</div></div>
+        <div class="glass p-4 text-center border-l-8 border-orange-500"><div>มาสายสะสม</div><div class="text-3xl font-bold">${tL}</div></div>
+        <div class="glass p-4 text-center border-l-8 border-rose-500"><div>ขาดสะสม</div><div class="text-3xl font-bold">${tA}</div></div>`;
+    
+    Swal.close();
+}
 
         function exportStatsCSV() {
             let csv = []; const rows = document.querySelectorAll("#page-admin-stats table tr");
@@ -569,6 +741,189 @@ function toggleScanner(on) {
             const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "Stats.csv"; link.click();
         }
 
+        // 1. ประกาศตัวแปรไว้เก็บค่าที่แก้ชั่วคราว (ต้องอยู่นอกฟังก์ชัน)
+let temporaryChanges = {};
+
+// 2. ฟังก์ชันหลักสำหรับแสดงรายการคาบเรียน (ที่คุณส่งมา ผมปรับปรุงให้เล็กน้อย)
+async function showSessionEditor() {
+    try {
+        const gradeEl = document.getElementById('st-grade');
+        const subEl = document.getElementById('st-sub');
+        if (!gradeEl || !subEl) return Swal.fire('ข้อผิดพลาด', 'ไม่พบช่องเลือกห้อง/วิชา', 'error');
+
+        const gr = gradeEl.value, sub = subEl.value;
+        if (!gr || !sub) return Swal.fire('แจ้งเตือน', 'กรุณาเลือก "ห้องเรียน" และ "วิชา" ก่อนครับ', 'warning');
+
+        Swal.fire({ title: 'กำลังดึงข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+        const sSnap = await db.ref('sessions').once('value');
+        const allSessions = sSnap.val();
+        if (!allSessions) return Swal.fire('ไม่พบข้อมูล', 'ยังไม่มีการเปิดคาบเรียนใดๆ', 'info');
+
+        const sessions = Object.entries(allSessions)
+            .map(([id, data]) => ({ id, ...data }))
+            .filter(s => s.grade === gr && s.subject === sub);
+
+        if (sessions.length === 0) return Swal.fire('ไม่พบข้อมูล', `วิชา ${sub} ห้อง ${gr} ยังไม่มีการเปิดคาบเรียน`, 'info');
+
+        sessions.reverse();
+        let sessionButtons = sessions.map(s => {
+            const sidStr = String(s.id); 
+            const displayId = sidStr.length > 5 ? sidStr.slice(-5) : sidStr;
+            return `
+                <button onclick="editSessionAttendance('${s.id}')" 
+                    class="m-1 px-4 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-sm transition-all text-sm font-bold min-w-[120px]">
+                    📅 ${s.date || 'ไม่ระบุวันที่'}<br>
+                    <span class="text-xs font-normal opacity-80">ID: ${displayId}</span>
+                </button>`;
+        }).join('');
+
+        Swal.fire({
+            title: '<span class="text-lg">เลือกคาบเรียนที่ต้องการแก้ไข</span>',
+            html: `<div class="flex flex-wrap justify-center p-2">${sessionButtons}</div>`,
+            showConfirmButton: false,
+            showCloseButton: true,
+            width: '500px'
+        });
+    } catch (error) {
+        Swal.fire('เกิดข้อผิดพลาด', error.message, 'error');
+    }
+}
+
+// 3. ฟังก์ชันแสดงรายชื่อนักเรียนและเลือกสถานะ (แบบยังไม่บันทึกทันที)
+async function editSessionAttendance(sessionId) {
+    const gr = document.getElementById('st-grade').value;
+    const sub = document.getElementById('st-sub').value;
+    const cleanGr = gr.replace(/[.#$[\]]/g, "_");
+    const cleanSub = sub.replace(/[.#$[\]]/g, "_");
+
+    // ล้างค่าเก่าที่ค้างอยู่ในตัวแปรชั่วคราว
+    temporaryChanges = {};
+
+    Swal.fire({ title: 'กำลังโหลดรายชื่อ...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+    try {
+        const aSnap = await db.ref(`attendance/${cleanGr}/${cleanSub}/${sessionId}`).once('value');
+        const currentAtt = aSnap.val() || {};
+        const roomData = typeof students !== 'undefined' ? students.filter(s => s.grade === gr) : [];
+
+        if (roomData.length === 0) return Swal.fire('ไม่พบรายชื่อ', 'โปรดเช็คข้อมูลนักเรียนใน Master Data', 'warning');
+
+        // --- ส่วนที่เพิ่ม: ปุ่มจัดการสถานะทั้งหมด ---
+        let html = `
+            <div class="flex justify-center gap-2 mb-4 bg-slate-50 p-2 rounded-xl">
+                <button onclick="markAllInEditor('มา')" class="px-4 py-2 bg-emerald-500 text-white rounded-lg font-bold text-xs hover:bg-emerald-600 transition-all">✅ มาทุกคน</button>
+                <button onclick="markAllInEditor('สาย')" class="px-4 py-2 bg-amber-500 text-white rounded-lg font-bold text-xs hover:bg-amber-600 transition-all">⏳ สายทุกคน</button>
+                <button onclick="markAllInEditor('ขาด')" class="px-4 py-2 bg-rose-500 text-white rounded-lg font-bold text-xs hover:bg-rose-600 transition-all">❌ ขาดทุกคน</button>
+            </div>
+            <div class="max-h-[50vh] overflow-y-auto border rounded-lg mb-4">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-100 sticky top-0">
+                        <tr><th class="p-3 border-b">ชื่อ-นามสกุล</th><th class="p-3 border-b w-32 text-center">สถานะ</th></tr>
+                    </thead>
+                    <tbody id="editor-table-body">`;
+
+        roomData.sort((a,b) => a.id - b.id).forEach(s => {
+            const currentStatus = currentAtt[s.id]?.status || "ขาด";
+            html += `
+                <tr class="border-b hover:bg-slate-50">
+                    <td class="p-3 font-medium text-left">${s.name}</td>
+                    <td class="p-3">
+                        <select data-id="${s.id}" onchange="queueChange('${s.id}', this.value)" class="att-select w-full p-2 rounded-md border shadow-sm cursor-pointer">
+                            <option value="มา" ${currentStatus === 'มา' ? 'selected' : ''}>✅ มา</option>
+                            <option value="สาย" ${currentStatus === 'สาย' ? 'selected' : ''}>⏳ สาย</option>
+                            <option value="ขาด" ${currentStatus === 'ขาด' ? 'selected' : ''}>❌ ขาด</option>
+                            <option value="ลา" ${currentStatus === 'ลา' ? 'selected' : ''}>📝 ลา</option>
+                        </select>
+                    </td>
+                </tr>`;
+        });
+        html += `</tbody></table></div>`;
+
+        Swal.fire({
+            title: `แก้ไขคาบเรียน: ${sessionId}`,
+            html: html,
+            showCancelButton: true,
+            confirmButtonText: '💾 บันทึกทั้งหมด',
+            confirmButtonColor: '#10b981',
+            cancelButtonText: 'ยกเลิก',
+            width: '600px',
+            preConfirm: async () => {
+                const total = Object.keys(temporaryChanges).length;
+                if (total === 0) return Swal.showValidationMessage('ไม่มีการแก้ไขข้อมูล');
+                try {
+                    await db.ref(`attendance/${cleanGr}/${cleanSub}/${sessionId}`).update(temporaryChanges);
+                    return true;
+                } catch (e) { Swal.showValidationMessage(`Error: ${e.message}`); }
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire('สำเร็จ', 'อัปเดตข้อมูลเรียบร้อย', 'success');
+                if (typeof generateStatsReport === "function") generateStatsReport();
+            }
+        });
+    } catch (e) { Swal.fire('Error', e.message, 'error'); }
+}
+
+// --- ฟังก์ชันเสริม: ติ๊กทั้งหมด ---
+function markAllInEditor(status) {
+    const selects = document.querySelectorAll('.att-select');
+    selects.forEach(sel => {
+        sel.value = status; // เปลี่ยนค่าหน้าจอ
+        const sid = sel.getAttribute('data-id');
+        queueChange(sid, status); // ส่งค่าไปเก็บใน temporaryChanges
+    });
+}
+
+// 4. ฟังก์ชันเก็บค่าลงตัวแปรชั่วคราว (ห้ามลบ)
+function queueChange(studentId, newStatus) {
+    temporaryChanges[studentId] = {
+        status: newStatus,
+        time: new Date().toLocaleTimeString('th-TH')
+    };
+
+}
+
+// ฟังก์ชันช่วยจัดการสี Dropdown
+function getStatusStyle(status) {
+    if (status === 'มา') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (status === 'สาย') return 'bg-amber-50 text-amber-700 border-amber-200';
+    if (status === 'ลา') return 'bg-blue-50 text-blue-700 border-blue-200';
+    return 'bg-rose-50 text-rose-700 border-rose-200';
+}
+
+// ฟังก์ชันช่วยเปลี่ยนสี Select ตามสถานะ
+function getStatusColor(s) {
+    if(s === 'มา') return 'bg-emerald-50 text-emerald-600';
+    if(s === 'สาย') return 'bg-amber-50 text-amber-600';
+    if(s === 'ขาด') return 'bg-rose-50 text-rose-600';
+    if(s === 'ลา') return 'bg-blue-50 text-blue-600';
+    return '';
+}
+
+// ฟังก์ชันบันทึกการแก้ไขสถานะตัวบุคคลลง Firebase
+async function updateSingleStatus(sessionId, studentId, newStatus) {
+    const gr = document.getElementById('st-grade').value;
+    const sub = document.getElementById('st-sub').value;
+    const cleanGr = gr.replace(/[.#$[\]]/g, "_");
+    const cleanSub = sub.replace(/[.#$[\]]/g, "_");
+
+    try {
+        await db.ref(`attendance/${cleanGr}/${cleanSub}/${sessionId}/${studentId}`).update({
+            status: newStatus,
+            time: new Date().toLocaleTimeString('th-TH')
+        });
+        
+        // แจ้งเตือนเล็กๆ มุมจอ
+        const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1000 });
+        Toast.fire({ icon: 'success', title: 'อัปเดตแล้ว' });
+        
+        // อัปเดตตารางสถิติหลักที่อยู่ด้านหลังอัตโนมัติ
+        generateStatsReport();
+    } catch (e) {
+        Swal.fire('Error', 'ไม่สามารถบันทึกได้', 'error');
+    }
+}
         // --- 7. QR PRINT TOOL ---
         function previewQR() {
             const gr = document.getElementById('qr-grade-sel').value; const list = students.filter(s => s.grade === gr).sort((a,b)=>a.id-b.id);
@@ -601,7 +956,39 @@ function toggleScanner(on) {
         async function showStdPending() { const sS = await db.ref('scores').once('value'); const allS = sS.val()||{}; let allT = new Set(); Object.values(allS).forEach(u => { if(u[currentSub]) Object.keys(u[currentSub]).forEach(t => allT.add(t)); }); const myS = allS[currentSid]?.[currentSub]||{}; const miss = Array.from(allT).filter(t => !myS[t]); const h = miss.map(m => `<div class="p-5 bg-rose-50 border-2 border-rose-100 rounded-2xl text-rose-600 font-bold text-lg">❌ ค้างส่ง: ${m}</div>`).join('') || '<div class="text-emerald-500 font-black text-2xl text-center py-10">🎉 คุณส่งงานครบทุกชิ้นแล้ว!</div>'; renderContent("📋 รายการงานค้าง", "#f43f5e", h); }
         async function showStdDoNow() { const s = await db.ref('donow').once('value'); const d = s.val()||{}; const ok = d.active && d.subject === currentSub && students.find(x=>x.id===currentSid).grade === d.grade; renderContent("⚡ กิจกรรม Do Now", "#fbbf24", ok ? `<div class="p-10 bg-amber-50 rounded-3xl border-4 border-dashed border-amber-300 text-center font-bold text-3xl text-amber-700">${d.text}</div>` : '<p class="text-center text-slate-300">ไม่มีกิจกรรมด่วนในขณะนี้</p>'); }
         function renderContent(t, c, h) { showPage('std-content-view'); document.getElementById('content-title').innerText = t; document.getElementById('content-border').style.borderColor = c; document.getElementById('content-area').innerHTML = h; }
-        async function saveDoNow(v) { await db.ref('donow').set({ active:v, grade:document.getElementById('dn-grade').value, subject:document.getElementById('dn-sub').value, text:document.getElementById('dn-msg').value }); Swal.fire('สำเร็จ'); }
+        // ฟังก์ชันสำหรับครู: กดเปิดระบบ
+        async function saveDoNow(isActive) {
+    const grade = document.getElementById('dn-grade').value;
+    const subject = document.getElementById('dn-sub').value;
+    const message = document.getElementById('dn-msg').value;
+
+    if (isActive && (!grade || !subject || !message)) {
+        return Swal.fire('ข้อมูลไม่ครบ', 'กรุณากรอกห้อง วิชา และโจทย์', 'warning');
+    }
+
+    // ข้อมูลที่จะส่งให้นักเรียน
+    const data = {
+        active: isActive,
+        grade: grade,
+        subject: subject,
+        text: message,
+        startTime: firebase.database.ServerValue.TIMESTAMP // ใช้เวลาจาก Server เพื่อให้ทุกคนตรงกัน
+    };
+
+    try {
+        // ลองเขียนข้อมูลลง Path: donow_config
+        await db.ref('donow_config').set(data);
+        
+        if (isActive) {
+            Swal.fire('เปิดระบบสำเร็จ', 'คำถามถูกส่งไปยังหน้าจอนักเรียนแล้ว', 'success');
+        } else {
+            Swal.fire('ปิดระบบ', 'ปิดการรับคำตอบแล้ว', 'info');
+        }
+    } catch (e) {
+        console.error(e);
+        Swal.fire('Error', 'เชื่อมต่อ Firebase ไม่ได้: ' + e.message, 'error');
+    }
+}   
 
         // --- 9. HELPERS ---
         function updateSelectMenus() {
@@ -634,38 +1021,6 @@ function toggleScanner(on) {
     }
 }
 
-function startDoNowTimer() {
-    let count = 180;
-    const btn = document.getElementById('btn-dn-submit');
-    const timerEl = document.getElementById('dn-timer');
-    const interval = setInterval(() => {
-        timerEl.innerText = count;
-        btn.innerText = `รอส่งคำตอบ (${count})`;
-        if (count <= 0) {
-            clearInterval(interval);
-            timerEl.innerText = "";
-            btn.disabled = false;
-            btn.innerText = "ส่งคำตอบได้";
-            btn.classList.replace('bg-slate-400', 'bg-emerald-500');
-        }
-        count--;
-    }, 1000);
-}
-
-async function submitDoNowAnswer() {
-    const ans = document.getElementById('std-dn-answer').value;
-    if (!ans) return Swal.fire('กรุณาพิมพ์คำตอบ');
-    
-    await db.ref(`donow_answers/${currentSid}`).set({
-        name: students.find(s => s.id === currentSid).name,
-        answer: ans,
-        timestamp: Date.now()
-    });
-    
-    Swal.fire('สำเร็จ', 'ส่งคำตอบเรียบร้อยแล้ว', 'success');
-    showPage('std-dashboard');
-}
-
 // เพิ่มในฟังก์ชันที่เรียกตอนเปิดหน้า Admin Do Now
 db.ref('donow_answers').on('value', snap => {
     const data = snap.val() || {};
@@ -678,6 +1033,232 @@ db.ref('donow_answers').on('value', snap => {
     });
     document.getElementById('dn-admin-monitor').innerHTML = html || "ยังไม่มีคำตอบส่งมา";
 });
+
+async function resetAttendance() {
+    const gr = document.getElementById('st-grade').value;
+    const sub = document.getElementById('st-sub').value;
+
+    if (!gr || !sub) return Swal.fire('ข้อมูลไม่ครบ', 'กรุณาเลือก "ห้องเรียน" และ "วิชา" ก่อนครับ', 'warning');
+
+    Swal.fire({ title: 'กำลังโหลดข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+    try {
+        // 1. ดึงรายการ Sessions ทั้งหมดมาหาคาบที่ตรงกับห้องและวิชานี้
+        const sSnap = await db.ref('sessions').once('value');
+        const allSessions = sSnap.val();
+
+        if (!allSessions) return Swal.fire('ไม่พบข้อมูล', 'ยังไม่มีประวัติการเปิดคาบเรียนใดๆ', 'info');
+
+        const sessions = Object.entries(allSessions)
+            .map(([id, data]) => ({ id, ...data }))
+            .filter(s => s.grade === gr && s.subject === sub);
+
+        if (sessions.length === 0) return Swal.fire('ไม่พบข้อมูล', `วิชา ${sub} ห้อง ${gr} ยังไม่มีข้อมูลให้ลบ`, 'info');
+
+        // เรียงจากใหม่ไปเก่า
+        sessions.reverse();
+
+        // 2. สร้างหน้าต่างเลือกคาบที่จะลบ
+        let sessionButtons = sessions.map(s => {
+            const sidStr = String(s.id);
+            const displayId = sidStr.length > 5 ? sidStr.slice(-5) : sidStr;
+            return `
+                <button onclick="confirmDeleteSession('${s.id}', '${s.date}')" 
+                    class="m-1 px-4 py-3 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-600 hover:text-white shadow-sm transition-all text-sm font-bold min-w-[120px]">
+                    🗑️ ลบคืนค่า<br>
+                    <span class="text-[11px] font-normal opacity-80">${s.date} (${displayId})</span>
+                </button>`;
+        }).join('');
+
+        Swal.fire({
+            title: '<span class="text-rose-600">เลือกคาบเรียนที่ต้องการลบทิ้ง</span>',
+            html: `<div class="p-2 mb-2 text-xs text-slate-500">คำเตือน: ข้อมูลการเช็คชื่อในคาบที่เลือกจะหายไปถาวร</div>
+                   <div class="flex flex-wrap justify-center p-2">${sessionButtons}</div>`,
+            showConfirmButton: false,
+            showCloseButton: true,
+            width: '500px'
+        });
+
+    } catch (error) {
+        Swal.fire('เกิดข้อผิดพลาด', error.message, 'error');
+    }
+}
+
+// ฟังก์ชันยืนยันการลบรายคาบ
+async function confirmDeleteSession(sessionId, sessionDate) {
+    const gr = document.getElementById('st-grade').value;
+    const sub = document.getElementById('st-sub').value;
+    const cleanGr = gr.replace(/[.#$[\]]/g, "_");
+    const cleanSub = sub.replace(/[.#$[\]]/g, "_");
+
+    const result = await Swal.fire({
+        title: 'ยืนยันการลบคาบนี้?',
+        text: `คาบเรียนวันที่ ${sessionDate} จะถูกลบทิ้งถาวร สถิติจะถูกคำนวณใหม่`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e11d48',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'ใช่, ลบทิ้งเลย',
+        cancelButtonText: 'ยกเลิก'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            Swal.fire({ title: 'กำลังลบ...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+            // 1. ลบข้อมูล Attendance ของคาบนั้น
+            await db.ref(`attendance/${cleanGr}/${cleanSub}/${sessionId}`).remove();
+
+            // 2. ลบตัว Session นั้นทิ้ง
+            await db.ref(`sessions/${sessionId}`).remove();
+
+            await Swal.fire({
+                icon: 'success',
+                title: 'ลบข้อมูลคาบนี้สำเร็จ',
+                timer: 1500,
+                showConfirmButton: false
+            });
+
+            // 3. อัปเดตตารางหลักทันที
+            generateStatsReport();
+
+        } catch (error) {
+            Swal.fire('Error', 'ไม่สามารถลบได้: ' + error.message, 'error');
+        }
+    }
+}
+    async function viewDoNowAnswers() {
+        if (typeof students === 'undefined' || students.length === 0) {
+            return Swal.fire('ไม่พบข้อมูล', 'กรุณาอัปโหลดไฟล์ Excel ก่อน', 'error');
+        }
+        const grades = [...new Set(students.map(s => s.grade))].sort();
+        let html = `<div class="grid grid-cols-2 gap-4 p-2">`;
+        grades.forEach(gr => {
+            html += `<button onclick='selectDoNowSubject(${JSON.stringify(gr)})' class="p-5 bg-indigo-600 text-white rounded-2xl font-black text-xl shadow-md">🏫 ห้อง ${gr}</button>`;
+        });
+        html += `</div>`;
+        Swal.fire({ title: 'เลือกห้องเรียน', html: html, showConfirmButton: false, showCloseButton: true });
+    }
+
+    async function selectDoNowSubject(gr) {
+        Swal.fire({ title: 'กำลังโหลด...', didOpen: () => Swal.showLoading() });
+        try {
+            const cleanGr = gr.replace(/[.#$[\]]/g, "_");
+            const snap = await db.ref(`donow/${cleanGr}`).once('value');
+            const data = snap.val();
+            if (!data) return Swal.fire('ไม่พบข้อมูล', `ห้อง ${gr} ยังไม่มีประวัติ Do Now`, 'info');
+            const subjects = Object.keys(data).filter(k => !['active', 'global'].includes(k));
+            let html = `<div class="grid grid-cols-1 gap-3 p-2">`;
+            subjects.forEach(sub => {
+                html += `<button onclick='selectDoNowDate(${JSON.stringify(gr)}, ${JSON.stringify(sub)})' class="p-4 bg-emerald-50 text-emerald-700 border-2 border-emerald-200 rounded-2xl font-bold text-lg text-left shadow-sm">📚 วิชา ${sub.replace(/_/g, " ")}</button>`;
+            });
+            Swal.fire({ title: `วิชาของห้อง ${gr}`, html: html, showConfirmButton: false });
+        } catch (e) { Swal.fire('Error', 'โหลดวิชาไม่สำเร็จ', 'error'); }
+    }
+
+    async function selectDoNowDate(gr, sub) {
+        Swal.fire({ title: 'กำลังโหลด...', didOpen: () => Swal.showLoading() });
+        try {
+            const cleanGr = gr.replace(/[.#$[\]]/g, "_");
+            const cleanSub = sub.replace(/[.#$[\]]/g, "_");
+            const snap = await db.ref(`donow/${cleanGr}/${cleanSub}`).once('value');
+            const dates = Object.keys(snap.val()).sort().reverse();
+            let html = `<div class="grid grid-cols-2 gap-3 p-2">`;
+            dates.forEach(d => {
+                html += `<button onclick="showDoNowDetail('${cleanGr}', '${cleanSub}', '${d}')" class="p-4 bg-amber-50 text-amber-700 border-2 border-amber-200 rounded-2xl font-bold text-lg shadow-sm">📅 ${d}</button>`;
+            });
+            Swal.fire({ title: 'เลือกวันที่', html: html, showConfirmButton: false });
+        } catch (e) { Swal.fire('Error', 'โหลดวันที่ไม่สำเร็จ', 'error'); }
+}
+// ตัวแปรเก็บ Timer เพื่อไม่ให้รันซ้อนกัน
+let donowTimerInterval;
+
+function initDoNowListener() {
+    // ดักฟังการเปลี่ยนแปลงจาก Firebase Path: donow_config
+    db.ref('donow_config').on('value', (snap) => {
+        const d = snap.val();
+        if (!d || !d.active) return; // ถ้าครูไม่ได้เปิดระบบ ไม่ต้องทำอะไร
+
+        // เช็คว่าวิชาและห้องตรงกับนักเรียนปัจจุบันไหม
+        // (ตัวแปร currentSub และ currentSid ต้องถูกเก็บค่าไว้ตอนเลือกวิชา)
+        const student = students.find(s => s.id === currentSid);
+        const isTarget = d.subject === currentSub && student.grade === d.grade;
+
+        if (isTarget) {
+            // 1. เด้งไปหน้าเนื้อหาทันที
+            showPage('page-std-content-view');
+            
+            // 2. แสดงโจทย์และตัวนับเวลา
+            document.getElementById('content-title').innerText = "⚡ กิจกรรม DO NOW";
+            document.getElementById('content-area').innerHTML = `
+                <div class="space-y-6">
+                    <div class="p-8 bg-amber-50 rounded-3xl border-4 border-dashed border-amber-300 text-center font-bold text-3xl text-amber-700">
+                        ${d.text}
+                    </div>
+                    
+                    <div class="text-center">
+                        <div class="text-sm text-slate-500 uppercase tracking-widest">เหลือเวลาอีก</div>
+                        <div id="dn-clock" class="text-5xl font-black text-red-500 my-2">180</div>
+                        <div class="text-sm text-slate-500">วินาที</div>
+                    </div>
+
+                    <div id="dn-input-section" class="space-y-4">
+                        <textarea id="std-dn-answer" class="w-full p-4 border-2 border-indigo-200 rounded-2xl focus:ring-4 focus:ring-indigo-100 outline-none text-lg" rows="3" placeholder="พิมพ์คำตอบของคุณที่นี่..."></textarea>
+                        <button onclick="submitDoNowAnswer()" id="btn-dn-submit" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-xl shadow-lg hover:bg-indigo-700 active:scale-95 transition-all">
+                            ส่งคำตอบเดี๋ยวนี้!
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // 3. เริ่มจับเวลา 180 วินาที
+            startCountdown(180);
+        }
+    });
+}
+
+function startCountdown(seconds) {
+    clearInterval(donowTimerInterval);
+    let timeLeft = seconds;
+    const clockDisplay = document.getElementById('dn-clock');
+    const btn = document.getElementById('btn-dn-submit');
+    const textarea = document.getElementById('std-dn-answer');
+
+    donowTimerInterval = setInterval(() => {
+        timeLeft--;
+        clockDisplay.innerText = timeLeft;
+
+        if (timeLeft <= 0) {
+            clearInterval(donowTimerInterval);
+            clockDisplay.innerText = "หมดเวลา!";
+            btn.disabled = true;
+            btn.classList.replace('bg-indigo-600', 'bg-slate-400');
+            textarea.disabled = true;
+            textarea.placeholder = "ไม่สามารถส่งคำตอบได้เนื่องจากหมดเวลา";
+        }
+    }, 1000);
+}
+
+async function submitDoNowAnswer() {
+    const ans = document.getElementById('std-dn-answer').value;
+    if (!ans) return Swal.fire('กรุณาพิมพ์คำตอบ');
+
+    try {
+        await db.ref(`donow_answers/${currentSid}`).set({
+            name: students.find(s => s.id === currentSid).name,
+            answer: ans,
+            time: new Date().toLocaleTimeString('th-TH'),
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        });
+        
+        clearInterval(donowTimerInterval);
+        Swal.fire('สำเร็จ!', 'ส่งคำตอบเรียบร้อยแล้ว', 'success');
+        showPage('page-std-subject-menu'); // กลับหน้าเลือกวิชา
+    } catch (e) {
+        Swal.fire('Error', 'ส่งไม่สำเร็จ: ' + e.message, 'error');
+    }
+}
+
     </script>
 </body>
 </html>
