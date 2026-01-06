@@ -27,7 +27,12 @@
         .status-absent { background: #f1f5f9; color: #64748b; }
         @media print { .no-print { display: none; } .print-area { display: block !important; } }
         th, td { border: 1px solid #e2e8f0; padding: 12px; }
-        
+        @keyframes scan {
+            0% { top: 0%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -120,7 +125,6 @@
         </button>
     </div>
 </div>
-            </div>
         </section>
 
         <section id="page-admin-monitor" class="page">
@@ -1962,81 +1966,54 @@ let currentCameraIndex = 0; // เก็บตัวเลือกกล้อ�
 
 async function startScanner() {
     try {
+        // 1. หยุดกล้องตัวเดิมก่อนเริ่มตัวใหม่ (สำคัญมากเพื่อไม่ให้ค้าง)
+        codeReader.reset(); 
+
         const videoInputDevices = await codeReader.listVideoInputDevices();
-        const selectedDeviceId = videoInputDevices[currentCameraIndex].deviceId;
-
-        // ปรับแต่งค่าสำหรับ Samsung/Android ให้สแกนง่ายขึ้น
-        const constraints = {
-            video: {
-                deviceId: { exact: selectedDeviceId },
-                width: { ideal: 1280 }, // บังคับความละเอียด HD
-                height: { ideal: 720 },
-                facingMode: currentCameraIndex === 0 ? "user" : "environment"
-            }
-        };
-
-        // เริ่มต้นสแกน
-        await codeReader.decodeFromVideoDevice(selectedDeviceId, 'check-video', (result, err) => {
-            if (scanMode === 'qr' && result) {
-                processStudentScan(result.text);
-                new Audio('beep.mp3').play();
-            }
-        });
-
-        // บังคับให้ Video เล่น (แก้ปัญจอดำบน iPhone)
-        const video = document.getElementById('check-video');
-        if (video) {
-            video.setAttribute('autoplay', '');
-            video.setAttribute('muted', '');
-            video.setAttribute('playsinline', '');
-            video.play().catch(e => console.log("Play failed:", e));
+        
+        if (videoInputDevices.length === 0) {
+            Swal.fire('ไม่พบกล้อง', 'อุปกรณ์ของคุณไม่มีกล้องที่ใช้งานได้', 'error');
+            return;
         }
 
+        // 2. เลือก Device ID ตามลำดับ Index (สลับไปมาได้)
+        // ถ้าเป็น Samsung มักมีกล้องหลายตัว (กล้องมุมกว้าง/เลนส์หลัก)
+        selectedDeviceId = videoInputDevices[currentCameraIndex].deviceId;
+        
+        console.log("กำลังเปิดกล้อง:", videoInputDevices[currentCameraIndex].label);
+
+        codeReader.decodeFromVideoDevice(selectedDeviceId, 'check-video', (result, err) => {
+            if (result) {
+                console.log("Scanned:", result.text);
+                processStudentScan(result.text);
+                
+                // เสียงแจ้งเตือน
+                const audio = new Audio('https://www.soundjay.com/buttons/beep-07a.mp3');
+                audio.play();
+                
+                // เพิ่มระบบสั่น (สำหรับ Android/Samsung) ให้รู้ว่าสแกนติดแล้ว
+                if (navigator.vibrate) navigator.vibrate(100);
+            }
+        });
     } catch (err) {
         console.error(err);
+        Swal.fire('กล้องขัดข้อง', 'ไม่สามารถเข้าถึงกล้องได้: ' + err.message, 'error');
     }
 }
 
 // 3. ฟังก์ชันสำหรับกดปุ่มสลับกล้อง
-// เก็บสถานะกล้องปัจจุบัน
-
 async function switchCamera() {
     try {
-        // 1. หยุดระบบ OCR และล้าง Interval ก่อนเพื่อคืนทรัพยากรกล้อง
-        if (ocrInterval) {
-            clearInterval(ocrInterval);
-            ocrInterval = null;
-        }
-
-        // 2. สั่งหยุดกล้องตัวเดิมให้สนิท (สำคัญมากสำหรับ iPad/iPhone)
-        if (codeReader) {
-            await codeReader.reset();
-        }
-
-        // 3. ดึงรายชื่อกล้องใหม่
         const videoInputDevices = await codeReader.listVideoInputDevices();
         if (videoInputDevices.length > 1) {
+            // สลับลำดับกล้องไปตัวถัดไป (0 -> 1 -> 0)
             currentCameraIndex = (currentCameraIndex + 1) % videoInputDevices.length;
-            
-            // 4. รอสักครู่ (300ms) ก่อนเริ่มกล้องตัวใหม่ เพื่อป้องกัน Hardware ค้าง
-            setTimeout(async () => {
-                await startScanner(); // เรียกฟังก์ชันเปิดกล้องปกติของคุณ
-                
-                // 5. ถ้าก่อนหน้านี้อยู่ในโหมดอ่านเลข ให้เปิดระบบ OCR กลับมาใหม่
-                if (scanMode === 'text') {
-                    switchToTextMode();
-                }
-            }, 300);
-            
-            console.log("สลับกล้องสำเร็จ");
+            startScanner(); // เริ่มสแกนใหม่ด้วยกล้องตัวใหม่
         } else {
-            Swal.fire('แจ้งเตือน', 'อุปกรณ์มีกล้องตัวเดียว', 'info');
+            Swal.fire('ไม่มีกล้องให้สลับ', 'อุปกรณ์ของคุณมีกล้องเพียงตัวเดียว', 'info');
         }
     } catch (err) {
         console.error("สลับกล้องไม่ได้:", err);
-        // หากจอดำ ให้ลองรีเซ็ตและเปิดใหม่เพียงครั้งเดียว
-        codeReader.reset();
-        startScanner();
     }
 }
 
