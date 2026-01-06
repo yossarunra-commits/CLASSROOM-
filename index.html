@@ -1306,7 +1306,6 @@ function startCountdown(duration, startTime) {
     Swal.fire({ title: 'กำลังโหลดข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
     try {
-        // 1. ดึงรายการ Sessions ทั้งหมดมาหาคาบที่ตรงกับห้องและวิชานี้
         const sSnap = await db.ref('sessions').once('value');
         const allSessions = sSnap.val();
 
@@ -1318,10 +1317,9 @@ function startCountdown(duration, startTime) {
 
         if (sessions.length === 0) return Swal.fire('ไม่พบข้อมูล', `วิชา ${sub} ห้อง ${gr} ยังไม่มีข้อมูลให้ลบ`, 'info');
 
-        // เรียงจากใหม่ไปเก่า
         sessions.reverse();
 
-        // 2. สร้างหน้าต่างเลือกคาบที่จะลบ
+        // 1. สร้างปุ่มสำหรับลบทีละคาบ
         let sessionButtons = sessions.map(s => {
             const sidStr = String(s.id);
             const displayId = sidStr.length > 5 ? sidStr.slice(-5) : sidStr;
@@ -1333,10 +1331,17 @@ function startCountdown(duration, startTime) {
                 </button>`;
         }).join('');
 
+        // 2. แสดงหน้าต่างพร้อมปุ่ม "ลบทั้งหมด"
         Swal.fire({
-            title: '<span class="text-rose-600">เลือกคาบเรียนที่ต้องการลบทิ้ง</span>',
-            html: `<div class="p-2 mb-2 text-xs text-slate-500">คำเตือน: ข้อมูลการเช็คชื่อในคาบที่เลือกจะหายไปถาวร</div>
-                   <div class="flex flex-wrap justify-center p-2">${sessionButtons}</div>`,
+            title: '<span class="text-rose-600">จัดการข้อมูลการเข้าเรียน</span>',
+            html: `
+                <div class="mb-4 p-4 bg-rose-600 text-white rounded-2xl shadow-lg cursor-pointer hover:bg-rose-700 transition-all" 
+                     onclick="deleteAllSessions('${gr}', '${sub}', ${sessions.length})">
+                    <div class="text-lg font-black">⚠️ ลบประวัติทั้งหมด (${sessions.length} คาบ)</div>
+                    <div class="text-xs opacity-80 font-normal">ลบข้อมูลวิชา ${sub} ห้อง ${gr} ทุกคาบที่เคยสแกนมา</div>
+                </div>
+                <div class="p-2 mb-2 text-xs text-slate-500 border-t pt-4">หรือเลือกเฉพาะบางคาบที่ต้องการลบ:</div>
+                <div class="flex flex-wrap justify-center p-2 max-h-[300px] overflow-y-auto">${sessionButtons}</div>`,
             showConfirmButton: false,
             showCloseButton: true,
             width: '500px'
@@ -1344,6 +1349,50 @@ function startCountdown(duration, startTime) {
 
     } catch (error) {
         Swal.fire('เกิดข้อผิดพลาด', error.message, 'error');
+    }
+}
+
+// ฟังก์ชันสำหรับลบทั้งหมด
+async function deleteAllSessions(grade, subject, count) {
+    const result = await Swal.fire({
+        title: 'ยืนยันลบทั้งหมด?',
+        text: `คุณกำลังจะลบข้อมูล ${count} คาบ ของวิชา ${subject} ห้อง ${grade} ข้อมูลจะหายไปถาวร!`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'ใช่, ลบทั้งหมด!',
+        cancelButtonText: 'ยกเลิก'
+    });
+
+    if (result.isConfirmed) {
+        Swal.fire({ title: 'กำลังลบข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+        try {
+            const sSnap = await db.ref('sessions').once('value');
+            const allSessions = sSnap.val();
+            const updates = {};
+
+            Object.entries(allSessions).forEach(([id, data]) => {
+                if (data.grade === grade && data.subject === subject) {
+                    updates[`/sessions/${id}`] = null; 
+                }
+            });
+
+            await db.ref().update(updates);
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'สำเร็จ!',
+                text: 'ลบข้อมูลทั้งหมดเรียบร้อยแล้ว',
+                timer: 1500,
+                showConfirmButton: false
+            });
+            
+            generateStatsReport();
+        } catch (error) {
+            Swal.fire('ลบไม่สำเร็จ', error.message, 'error');
+        }
     }
 }
 
