@@ -27,12 +27,7 @@
         .status-absent { background: #f1f5f9; color: #64748b; }
         @media print { .no-print { display: none; } .print-area { display: block !important; } }
         th, td { border: 1px solid #e2e8f0; padding: 12px; }
-        @keyframes scan {
-            0% { top: 0%; opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { top: 100%; opacity: 0; }
-        }
+        
     </style>
 </head>
 <body>
@@ -90,43 +85,28 @@
                     </div>
                 </div>
                 
-                <div class="lg:col-span-2 glass p-6 sm:p-10 text-center relative overflow-hidden">
-    <div id="ses-label" class="mb-6 text-xl font-black text-slate-700 tracking-tight">
-        <span class="bg-indigo-100 text-indigo-600 px-4 py-1 rounded-full text-sm uppercase mr-2">Status</span>
-        <span class="text-slate-400 font-medium italic">เลือกวิชาเพื่อเริ่มสแกน...</span>
-    </div>
-
+                <div class="lg:col-span-2 glass p-10 text-center">
+    <div id="ses-label" class="mb-6 text-xl font-bold text-slate-400 italic">เลือกวิชาและห้องเรียนเพื่อเริ่มสแกน...</div>
+    
     <div class="relative max-w-md mx-auto aspect-square group">
         <button onclick="switchCamera()" 
-                class="absolute top-4 right-4 z-50 w-12 h-12 bg-white/20 hover:bg-white/40 backdrop-blur-xl border border-white/30 text-white rounded-2xl shadow-2xl transition-all active:scale-90 flex items-center justify-center group-hover:border-indigo-400">
+                class="absolute top-4 right-4 z-[100] w-12 h-12 bg-white/20 hover:bg-indigo-600 backdrop-blur-md border border-white/30 text-white rounded-2xl shadow-xl transition-all active:scale-90 flex items-center justify-center group-hover:bg-indigo-500">
             <span class="text-2xl">🔄</span>
         </button>
 
-        <div id="reader" class="w-full h-full rounded-[2.5rem] overflow-hidden border-8 border-slate-900 bg-slate-900 shadow-[0_20px_50px_rgba(0,0,0,0.3)] relative">
-            <div class="absolute inset-0 pointer-events-none border-[3rem] border-black/20 flex items-center justify-center">
-                <div class="w-full h-full border-2 border-indigo-400/50 rounded-3xl relative">
-                    <div class="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-indigo-500 rounded-tl-lg"></div>
-                    <div class="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-indigo-500 rounded-tr-lg"></div>
-                    <div class="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-indigo-500 rounded-bl-lg"></div>
-                    <div class="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-indigo-500 rounded-br-lg"></div>
-                </div>
-            </div>
+        <div class="absolute inset-0 z-10 pointer-events-none border-[1rem] border-black/5 rounded-[2.5rem]">
+             <div class="w-full h-full border-2 border-indigo-400/20 rounded-[1.5rem]"></div>
         </div>
+
+        <div id="reader" class="w-full h-full rounded-[2.5rem] overflow-hidden bg-slate-900 border-4 border-white shadow-2xl"></div>
     </div>
 
-    <div class="flex gap-4 mt-10 max-w-sm mx-auto">
-        <button id="btn-on" onclick="toggleScanner(true)" 
-                class="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-[0_10px_20px_rgba(79,70,229,0.3)] transition-all active:transform active:scale-95">
-            เปิดกล้องสแกน
-        </button>
-        <button id="btn-off" onclick="toggleScanner(false)" 
-                class="flex-1 py-4 bg-slate-100 text-slate-400 rounded-2xl font-bold transition-all disabled:opacity-50" disabled>
-            ปิดกล้อง
-        </button>
+    <div class="flex gap-4 mt-8 max-w-sm mx-auto">
+        <button id="btn-on" onclick="toggleScanner(true)" class="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 transition-all">เปิดกล้อง</button>
+        <button id="btn-off" onclick="toggleScanner(false)" class="flex-1 py-4 bg-slate-200 text-slate-500 rounded-2xl font-bold transition-all" disabled>ปิดกล้อง</button>
     </div>
 </div>
-            </div>
-        </section>
+</section>
 
         <section id="page-admin-monitor" class="page">
             <button onclick="showPage('admin-menu')" class="mb-4 font-bold text-slate-400">← กลับหน้าเมนู</button>
