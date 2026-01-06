@@ -1388,7 +1388,7 @@ async function deleteAllSessions(grade, subject, count) {
                 timer: 1500,
                 showConfirmButton: false
             });
-            
+
             generateStatsReport();
         } catch (error) {
             Swal.fire('ลบไม่สำเร็จ', error.message, 'error');
@@ -2024,6 +2024,7 @@ async function startScanner() {
     }
 }
 
+
 // 3. ฟังก์ชันสำหรับกดปุ่มสลับกล้อง
 async function switchCamera() {
     try {
@@ -2360,21 +2361,6 @@ function updateStudentUIStatus(studentId) {
 
 let currentFacingMode = 'environment'; // เริ่มต้นที่กล้องหลัง
 
-async function switchCamera() {
-    // 1. สลับค่าระหว่าง 'user' (หน้า) และ 'environment' (หลัง)
-    currentFacingMode = (currentFacingMode === 'environment') ? 'user' : 'environment';
-    
-    // 2. ถ้ามีฟังก์ชันหยุดกล้องเดิม ให้เรียกใช้ก่อน (ขึ้นอยู่กับ Library ที่คุณใช้)
-    // สมมติว่าคุณใช้ Html5QrcodeScanner หรือฟังก์ชันเปิดกล้องมาตรฐาน:
-    if (html5QrCode && html5QrCode.isScanning) {
-        await html5QrCode.stop();
-        startScanner(); // เรียกฟังก์ชันเปิดกล้องใหม่ของคุณ
-    } else {
-        // กรณีเปิดกล้องด้วยวิธีมาตรฐาน ให้เรียกฟังก์ชันเปิดกล้องใหม่พร้อมระบุ facingMode
-        stopCamera(); // ฟังก์ชันหยุดวิดีโอเดิมของคุณ
-        startScanner(); 
-    }
-}
 
     </script>
 
