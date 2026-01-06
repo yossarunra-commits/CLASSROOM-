@@ -84,39 +84,30 @@
                     </div>
                 </div>
                 
-                <div class="lg:col-span-2 glass p-6 sm:p-10 text-center relative overflow-hidden">
-    <div id="ses-label" class="mb-6 text-xl font-black text-slate-700 tracking-tight">
-        <span class="bg-indigo-100 text-indigo-600 px-4 py-1 rounded-full text-sm uppercase mr-2">Status</span>
-        <span class="text-slate-400 font-medium italic">เลือกวิชาเพื่อเริ่มสแกน...</span>
+                <div class="lg:col-span-2 glass p-6 sm:p-10 text-center relative">
+    <div id="ses-label" class="mb-6 text-xl font-bold text-slate-400 italic">
+        เล็งกล้องไปที่ QR Code เพื่อเช็คชื่อ
     </div>
-
-    <div class="relative max-w-md mx-auto aspect-square group">
-        <button onclick="switchCamera()" 
-                class="absolute top-4 right-4 z-50 w-12 h-12 bg-white/20 hover:bg-white/40 backdrop-blur-xl border border-white/30 text-white rounded-2xl shadow-2xl transition-all active:scale-90 flex items-center justify-center group-hover:border-indigo-400">
-            <span class="text-2xl">🔄</span>
-        </button>
-
-        <div id="reader" class="w-full h-full rounded-[2.5rem] overflow-hidden border-8 border-slate-900 bg-slate-900 shadow-[0_20px_50px_rgba(0,0,0,0.3)] relative">
-            <div class="absolute inset-0 pointer-events-none border-[3rem] border-black/20 flex items-center justify-center">
-                <div class="w-full h-full border-2 border-indigo-400/50 rounded-3xl relative">
+    
+    <div class="relative max-w-md mx-auto aspect-square">
+        <div id="reader-container" class="w-full h-full rounded-[2.5rem] overflow-hidden bg-black border-8 border-white shadow-2xl relative">
+            <video id="check-video" class="w-full h-full object-cover" autoplay playsinline muted></video>
+            
+            <div class="absolute inset-0 pointer-events-none flex items-center justify-center">
+                <div class="w-64 h-64 border-2 border-indigo-400/30 rounded-3xl relative">
                     <div class="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-indigo-500 rounded-tl-lg"></div>
                     <div class="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-indigo-500 rounded-tr-lg"></div>
                     <div class="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-indigo-500 rounded-bl-lg"></div>
                     <div class="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-indigo-500 rounded-br-lg"></div>
+                    <div class="w-full h-0.5 bg-indigo-500/50 absolute top-1/2 left-0 animate-pulse"></div>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="flex gap-4 mt-10 max-w-sm mx-auto">
-        <button id="btn-on" onclick="toggleScanner(true)" 
-                class="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-[0_10px_20px_rgba(79,70,229,0.3)] transition-all active:transform active:scale-95">
-            เปิดกล้องสแกน
-        </button>
-        <button id="btn-off" onclick="toggleScanner(false)" 
-                class="flex-1 py-4 bg-slate-100 text-slate-400 rounded-2xl font-bold transition-all disabled:opacity-50" disabled>
-            ปิดกล้อง
-        </button>
+        <button id="btn-on" onclick="startScanner()" class="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-200">เปิดกล้องหลัง</button>
+        <button id="btn-off" onclick="stopScanner()" class="flex-1 py-4 bg-slate-100 text-slate-400 rounded-2xl font-bold" disabled>ปิดกล้อง</button>
     </div>
 </div>
         </section>
@@ -1907,7 +1898,6 @@ function startRandomSpin() {
     }, speed);
 }
 
-let codeReader = new ZXing.BrowserQRCodeReader();
 let selectedDeviceId;
 let currentScannedStudent = null;
 
@@ -1956,43 +1946,65 @@ function updateSelectMenus() {
 }
 
 // 2. ระบบกล้อง
-let currentCameraIndex = 0; // เก็บตัวเลือกกล้องที่กำลังใช้งาน
+let codeReader = new ZXing.BrowserMultiFormatReader();
 
 async function startScanner() {
     try {
-        // 1. หยุดกล้องตัวเดิมก่อนเริ่มตัวใหม่ (สำคัญมากเพื่อไม่ให้ค้าง)
-        codeReader.reset(); 
-
-        const videoInputDevices = await codeReader.listVideoInputDevices();
+        // 1. ล้างสถานะเดิมก่อนเริ่มใหม่
+        await codeReader.reset();
         
-        if (videoInputDevices.length === 0) {
-            Swal.fire('ไม่พบกล้อง', 'อุปกรณ์ของคุณไม่มีกล้องที่ใช้งานได้', 'error');
-            return;
-        }
-
-        // 2. เลือก Device ID ตามลำดับ Index (สลับไปมาได้)
-        // ถ้าเป็น Samsung มักมีกล้องหลายตัว (กล้องมุมกว้าง/เลนส์หลัก)
-        selectedDeviceId = videoInputDevices[currentCameraIndex].deviceId;
+        const videoElement = document.getElementById('check-video');
         
-        console.log("กำลังเปิดกล้อง:", videoInputDevices[currentCameraIndex].label);
+        // 2. ตั้งค่า Constraints บังคับกล้องหลัง (FacingMode: Environment)
+        const constraints = {
+            video: { 
+                facingMode: { exact: "environment" } // บังคับกล้องหลังเท่านั้น
+            },
+            audio: false
+        };
 
-        codeReader.decodeFromVideoDevice(selectedDeviceId, 'check-video', (result, err) => {
+        console.log("กำลังเรียกใช้งานกล้องหลัง...");
+
+        // 3. เริ่มสแกนด้วย Constraints
+        // หากมือถือรุ่นเก่ามากไม่รองรับ exact ให้ใช้ facingMode: "environment" ปกติ
+        await codeReader.decodeFromConstraints(constraints, 'check-video', (result, err) => {
             if (result) {
-                console.log("Scanned:", result.text);
-                processStudentScan(result.text);
+                console.log("QR Found:", result.text);
+                processStudentScan(result.text); // ฟังก์ชันเช็คชื่อหลักของคุณ
                 
                 // เสียงแจ้งเตือน
-                const audio = new Audio('https://www.soundjay.com/buttons/beep-07a.mp3');
-                audio.play();
-                
-                // เพิ่มระบบสั่น (สำหรับ Android/Samsung) ให้รู้ว่าสแกนติดแล้ว
-                if (navigator.vibrate) navigator.vibrate(100);
+                const beep = new Audio('https://www.soundjay.com/buttons/beep-07a.mp3');
+                beep.play().catch(() => {});
             }
         });
+
+        // 4. บังคับเล่นวิดีโอ (ป้องกันจอดำ)
+        if (videoElement) {
+            videoElement.play().catch(e => console.warn("Auto-play failed:", e));
+        }
+
+        document.getElementById('btn-on').disabled = true;
+        document.getElementById('btn-off').disabled = false;
+
     } catch (err) {
-        console.error(err);
-        Swal.fire('กล้องขัดข้อง', 'ไม่สามารถเข้าถึงกล้องได้: ' + err.message, 'error');
+        console.error("Camera Error:", err);
+        // กรณีถ้าใช้ 'exact' แล้วเปิดไม่ได้ (เช่นรันบนคอมพิวเตอร์) ให้ลองเปิดแบบปกติ
+        try {
+            await codeReader.decodeFromConstraints({ video: { facingMode: "environment" } }, 'check-video', (result, err) => {
+                if (result) processStudentScan(result.text);
+            });
+        } catch (retryErr) {
+            alert("ไม่สามารถเปิดกล้องหลังได้: โปรดตรวจสอบการอนุญาตเข้าถึงกล้อง");
+        }
     }
+}
+
+async function stopScanner() {
+    if (codeReader) {
+        await codeReader.reset();
+    }
+    document.getElementById('btn-on').disabled = false;
+    document.getElementById('btn-off').disabled = true;
 }
 
 // 3. ฟังก์ชันสำหรับกดปุ่มสลับกล้อง
