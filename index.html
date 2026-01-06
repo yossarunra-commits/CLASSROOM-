@@ -27,6 +27,12 @@
         .status-absent { background: #f1f5f9; color: #64748b; }
         @media print { .no-print { display: none; } .print-area { display: block !important; } }
         th, td { border: 1px solid #e2e8f0; padding: 12px; }
+        @keyframes scan {
+            0% { top: 0%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -83,14 +89,42 @@
                         <button onclick="createSession()" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg">เริ่มระบบ Global Sync</button>
                     </div>
                 </div>
-                <div class="lg:col-span-2 glass p-10 text-center">
-                    <div id="ses-label" class="mb-6 text-xl font-bold text-slate-400 italic">เลือกวิชาและห้องเรียนเพื่อเริ่มสแกน...</div>
-                    <div id="reader"></div>
-                    <div class="flex gap-4 mt-8 max-w-sm mx-auto">
-                        <button id="btn-on" onclick="toggleScanner(true)" class="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg">เปิดกล้อง</button>
-                        <button id="btn-off" onclick="toggleScanner(false)" class="flex-1 py-4 bg-slate-200 text-slate-500 rounded-2xl font-bold" disabled>ปิดกล้อง</button>
-                    </div>
+                
+                <div class="lg:col-span-2 glass p-6 sm:p-10 text-center relative overflow-hidden">
+    <div id="ses-label" class="mb-6 text-xl font-black text-slate-700 tracking-tight">
+        <span class="bg-indigo-100 text-indigo-600 px-4 py-1 rounded-full text-sm uppercase mr-2">Status</span>
+        <span class="text-slate-400 font-medium italic">เลือกวิชาเพื่อเริ่มสแกน...</span>
+    </div>
+
+    <div class="relative max-w-md mx-auto aspect-square group">
+        <button onclick="switchCamera()" 
+                class="absolute top-4 right-4 z-50 w-12 h-12 bg-white/20 hover:bg-white/40 backdrop-blur-xl border border-white/30 text-white rounded-2xl shadow-2xl transition-all active:scale-90 flex items-center justify-center group-hover:border-indigo-400">
+            <span class="text-2xl">🔄</span>
+        </button>
+
+        <div id="reader" class="w-full h-full rounded-[2.5rem] overflow-hidden border-8 border-slate-900 bg-slate-900 shadow-[0_20px_50px_rgba(0,0,0,0.3)] relative">
+            <div class="absolute inset-0 pointer-events-none border-[3rem] border-black/20 flex items-center justify-center">
+                <div class="w-full h-full border-2 border-indigo-400/50 rounded-3xl relative">
+                    <div class="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-indigo-500 rounded-tl-lg"></div>
+                    <div class="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-indigo-500 rounded-tr-lg"></div>
+                    <div class="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-indigo-500 rounded-bl-lg"></div>
+                    <div class="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-indigo-500 rounded-br-lg"></div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex gap-4 mt-10 max-w-sm mx-auto">
+        <button id="btn-on" onclick="toggleScanner(true)" 
+                class="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-[0_10px_20px_rgba(79,70,229,0.3)] transition-all active:transform active:scale-95">
+            เปิดกล้องสแกน
+        </button>
+        <button id="btn-off" onclick="toggleScanner(false)" 
+                class="flex-1 py-4 bg-slate-100 text-slate-400 rounded-2xl font-bold transition-all disabled:opacity-50" disabled>
+            ปิดกล้อง
+        </button>
+    </div>
+</div>
             </div>
         </section>
 
@@ -389,12 +423,19 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-0">
             <div class="p-8 bg-slate-900 flex flex-col items-center justify-center min-h-[400px] relative">
                 <div class="absolute top-4 left-4 z-10 bg-emerald-500 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse">LIVE CAMERA</div>
+                
                 <div id="scanner-container" class="w-full max-w-sm aspect-square bg-slate-800 rounded-3xl overflow-hidden border-4 border-emerald-500/30 relative">
+                    <button onclick="switchCamera()" class="absolute top-4 right-4 z-50 bg-white/20 hover:bg-white/40 backdrop-blur-md p-3 rounded-2xl shadow-lg transition-all active:scale-90 border border-white/20">
+                        <span class="text-xl">🔄</span>
+                    </button>
+
                     <video id="check-video" class="w-full h-full object-cover"></video>
-                    <div class="absolute inset-0 border-[40px] border-black/40 flex items-center justify-center">
+                    
+                    <div class="absolute inset-0 border-[40px] border-black/40 flex items-center justify-center pointer-events-none">
                         <div class="w-full h-full border-2 border-emerald-400 shadow-[0_0_20px_rgba(52,211,153,0.5)]"></div>
                     </div>
                 </div>
+                
                 <p class="mt-6 text-slate-400 text-sm italic">วาง QR Code รหัสนักเรียนให้อยู่ในกรอบ</p>
             </div>
 
@@ -1922,23 +1963,58 @@ function updateSelectMenus() {
 }
 
 // 2. ระบบกล้อง
+let currentCameraIndex = 0; // เก็บตัวเลือกกล้องที่กำลังใช้งาน
+
 async function startScanner() {
     try {
+        // 1. หยุดกล้องตัวเดิมก่อนเริ่มตัวใหม่ (สำคัญมากเพื่อไม่ให้ค้าง)
+        codeReader.reset(); 
+
         const videoInputDevices = await codeReader.listVideoInputDevices();
-        selectedDeviceId = videoInputDevices[0].deviceId;
         
+        if (videoInputDevices.length === 0) {
+            Swal.fire('ไม่พบกล้อง', 'อุปกรณ์ของคุณไม่มีกล้องที่ใช้งานได้', 'error');
+            return;
+        }
+
+        // 2. เลือก Device ID ตามลำดับ Index (สลับไปมาได้)
+        // ถ้าเป็น Samsung มักมีกล้องหลายตัว (กล้องมุมกว้าง/เลนส์หลัก)
+        selectedDeviceId = videoInputDevices[currentCameraIndex].deviceId;
+        
+        console.log("กำลังเปิดกล้อง:", videoInputDevices[currentCameraIndex].label);
+
         codeReader.decodeFromVideoDevice(selectedDeviceId, 'check-video', (result, err) => {
             if (result) {
                 console.log("Scanned:", result.text);
                 processStudentScan(result.text);
-                // เสียงแจ้งเตือนสั้นๆ
+                
+                // เสียงแจ้งเตือน
                 const audio = new Audio('https://www.soundjay.com/buttons/beep-07a.mp3');
                 audio.play();
+                
+                // เพิ่มระบบสั่น (สำหรับ Android/Samsung) ให้รู้ว่าสแกนติดแล้ว
+                if (navigator.vibrate) navigator.vibrate(100);
             }
         });
     } catch (err) {
         console.error(err);
-        Swal.fire('กล้องขัดข้อง', 'ไม่สามารถเข้าถึงกล้องได้', 'error');
+        Swal.fire('กล้องขัดข้อง', 'ไม่สามารถเข้าถึงกล้องได้: ' + err.message, 'error');
+    }
+}
+
+// 3. ฟังก์ชันสำหรับกดปุ่มสลับกล้อง
+async function switchCamera() {
+    try {
+        const videoInputDevices = await codeReader.listVideoInputDevices();
+        if (videoInputDevices.length > 1) {
+            // สลับลำดับกล้องไปตัวถัดไป (0 -> 1 -> 0)
+            currentCameraIndex = (currentCameraIndex + 1) % videoInputDevices.length;
+            startScanner(); // เริ่มสแกนใหม่ด้วยกล้องตัวใหม่
+        } else {
+            Swal.fire('ไม่มีกล้องให้สลับ', 'อุปกรณ์ของคุณมีกล้องเพียงตัวเดียว', 'info');
+        }
+    } catch (err) {
+        console.error("สลับกล้องไม่ได้:", err);
     }
 }
 
@@ -2238,6 +2314,9 @@ function updateStudentUIStatus(studentId) {
         console.log(`อัปเดตสถานะรหัส ${studentId} สำเร็จ`);
     }
 }
+
+let currentFacingMode = 'environment'; // เริ่มต้นที่กล้องหลัง
+
 
     </script>
 
