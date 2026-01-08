@@ -64,6 +64,7 @@
                 <button onclick="showPage('admin-monitor')" class="glass p-8 bg-emerald-600 text-white text-lg font-bold hover:scale-105 transition-transform shadow-emerald-200 shadow-lg">🖥️ จอมอนิเตอร์</button>
                 <button onclick="showPage('admin-donow')" class="glass p-8 bg-amber-400 text-white text-lg font-bold">⚡ กิจกรรม Do Now</button>
                 <button onclick="showPage('admin-check'); populateCheckGrade();" class="glass p-8 bg-emerald-500 text-white text-lg font-bold hover:scale-105 transition-all shadow-emerald-200 shadow-lg flex flex-col items-center justify-center gap-3"><span class="text-4xl">📸</span><span>Scan & Check</span></button>
+                <button onclick="showPage('admin-exam')" class="glass p-8 bg-emerald-600 text-white text-xl font-black rounded-[2.5rem] hover:scale-105 transition-transform shadow-emerald-200 shadow-xl flex flex-col items-center gap-3"> <span class="text-4xl">📝</span> จัดการระบบสอบ </button>
                 <button onclick="showPage('admin-random'); populateRandomGrade();" class="glass p-8 bg-orange-500 text-white text-lg font-bold hover:scale-105 transition-transform shadow-orange-200 shadow-lg">🎲 สุ่มเรียกชื่อ</button>
                 <button onclick="showPage('admin-stats')" class="glass p-8 bg-sky-500 text-white text-lg font-bold hover:scale-105 transition-transform shadow-sky-200 shadow-lg">📈 สถิติเข้าเรียน</button>
                 <button onclick="showPage('admin-tracking')" class="glass p-8 bg-rose-500 text-white text-lg font-bold hover:scale-105 transition-transform shadow-rose-200 shadow-lg">📋 ติดตามงาน</button>
@@ -90,15 +91,33 @@
                     </div>
                 </div>
                 
-                <div class="lg:col-span-2 glass p-10 text-center">
-                    <div id="ses-label" class="mb-6 text-xl font-bold text-slate-400 italic">เลือกวิชาและห้องเรียนเพื่อเริ่มสแกน...</div>
-                    <div id="reader"></div>
-                    <div class="flex gap-4 mt-8 max-w-sm mx-auto">
-                        <button id="btn-on" onclick="toggleScanner(true)" class="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg">เปิดกล้อง</button>
-                        <button id="btn-off" onclick="toggleScanner(false)" class="flex-1 py-4 bg-slate-200 text-slate-500 rounded-2xl font-bold" disabled>ปิดกล้อง</button>
-                    </div>
-                </div>
-            </div>
+                <div class="lg:col-span-2 glass p-10 text-center relative">
+    <div id="ses-label" class="mb-6 text-xl font-bold text-slate-400 italic">
+        สแกน QR Code หรือกรอกรหัสเพื่อเช็คชื่อ/งาน
+    </div>
+
+    <div id="reader" class="overflow-hidden rounded-3xl border-4 border-white shadow-inner bg-slate-100"></div>
+
+    <div class="mt-8 max-w-sm mx-auto">
+        <div class="relative group">
+            <input type="number" 
+                    id="manual-id" 
+                   class="w-full p-5 bg-white/50 backdrop-blur-sm border-2 border-slate-200 rounded-2xl text-center text-2xl font-black text-slate-700 outline-none focus:border-slate-900 transition-all"
+                   placeholder="กรอกรหัสนักเรียน">
+            
+                   <button onclick="checkManual()" 
+                    class="absolute right-2 top-2 bottom-2 px-6 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-700 transition-all">
+                OK
+            </button>
+        </div>
+        <p class="mt-2 text-xs text-slate-400 font-bold uppercase tracking-widest">Manual Input ID</p>
+    </div>
+
+    <div class="flex gap-4 mt-8 max-w-sm mx-auto">
+        <button id="btn-on" onclick="toggleScanner(true)" class="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg">เปิดกล้อง</button>
+        <button id="btn-off" onclick="toggleScanner(false)" class="flex-1 py-4 bg-slate-200 text-slate-500 rounded-2xl font-bold" disabled>ปิดกล้อง</button>
+    </div>
+</div>
         </section>
 
         <section id="page-admin-monitor" class="page">
@@ -249,6 +268,7 @@
                 <button onclick="showStdDoNow()" class="glass p-12 bg-amber-400 text-white text-2xl font-bold hover:scale-105 transition-transform shadow-xl shadow-amber-100">⚡ DO NOW</button>
                 <button onclick="showStdScores()" class="glass p-12 bg-indigo-600 text-white text-2xl font-bold hover:scale-105 transition-transform shadow-xl shadow-indigo-100">🏆 SCORES</button>
                 <button onclick="showStdPending()" class="glass p-12 bg-rose-500 text-white text-2xl font-bold hover:scale-105 transition-transform shadow-xl shadow-rose-100">📋 PENDING</button>
+                <button onclick="showPage()" class="glass p-12 bg-emerald-600 text-white text-2xl font-black hover:scale-105 transition-transform shadow-indigo-200 shadow-xl flex flex-col items-center gap-3"><span class="text-4xl">📍</span>ข้อสอบ</button>
             </div>
         </section>
 
@@ -406,9 +426,28 @@
                     
                     <div class="absolute inset-0 border-[40px] border-black/40 flex items-center justify-center pointer-events-none">
                         <div class="w-full h-full border-2 border-emerald-400 shadow-[0_0_20px_rgba(52,211,153,0.5)]"></div>
+                   
                     </div>
+                    
                 </div>
                 
+                <div class="w-full max-w-sm flex flex-col gap-3">
+            <div class="relative w-full max-w-sm mx-auto mt-4">
+    <input type="number" 
+           id="manual-id1" 
+           class="w-full p-4 bg-slate-800 border-2 border-slate-700 rounded-2xl text-white text-center text-xl font-black focus:border-emerald-500 outline-none" 
+           placeholder="กรอกรหัสนักเรียนที่นี่..."
+           autocomplete="off">
+           
+    <button type="button" 
+            onclick="checkByInput()" 
+            class="absolute right-2 top-2 bottom-2 px-6 bg-emerald-500 hover:bg-emerald-600 text-slate-900 rounded-xl font-black transition-all active:scale-95 shadow-lg">
+        OK
+    </button>
+</div>
+            <p class="text-slate-400 text-xs text-center italic">กด OK หรือ Enter เพื่อบันทึกข้อมูล</p>
+        </div>
+        
                 <p class="mt-6 text-slate-400 text-sm italic">วาง QR Code รหัสนักเรียนให้อยู่ในกรอบ</p>
             </div>
 
@@ -482,6 +521,29 @@
             </button>
         </div>
     </div>
+</section>
+
+</section>
+<div  id="page-admin-exam" class="page px-4">
+    <div class="max-w-4xl mx-auto">
+        <div class="flex items-center gap-4 mb-8">
+            <button onclick="showPage('admin-menu')" class="w-12 h-12 glass flex items-center justify-center rounded-2xl text-2xl">⬅️</button>
+            <h2 class="text-3xl font-black text-slate-800">จัดการระบบสอบ</h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div onclick="openQuestionEditor()" class="glass p-6 border-2 border-dashed border-indigo-200 hover:border-indigo-500 cursor-pointer transition-all rounded-3xl text-center">
+                <div class="text-4xl mb-2">➕</div>
+                <div class="font-bold text-indigo-600">สร้าง/แก้ไขโจทย์ข้อสอบ</div>
+            </div>
+            
+            <div onclick="showExamResults()" class="glass p-6 border-2 border-dashed border-emerald-200 hover:border-emerald-500 cursor-pointer transition-all rounded-3xl text-center">
+                <div class="text-4xl mb-2">📊</div>
+                <div class="font-bold text-emerald-600">ดูคะแนนสอบนักเรียน</div>
+            </div>
+        </div>
+    </div>
+</div>
 </section>
 
     </main>
@@ -1987,11 +2049,10 @@ function updateSelectMenus() {
 // 2. ระบบกล้อง
 let currentCameraIndex = 0; // เก็บตัวเลือกกล้องที่กำลังใช้งาน
 
+// --- [2] ฟังก์ชันเริ่มกล้อง (พร้อมเปิดระบบพิมพ์รหัส) ---
 async function startScanner() {
     try {
-        // 1. หยุดกล้องตัวเดิมก่อนเริ่มตัวใหม่ (สำคัญมากเพื่อไม่ให้ค้าง)
         codeReader.reset(); 
-
         const videoInputDevices = await codeReader.listVideoInputDevices();
         
         if (videoInputDevices.length === 0) {
@@ -1999,28 +2060,34 @@ async function startScanner() {
             return;
         }
 
-        // 2. เลือก Device ID ตามลำดับ Index (สลับไปมาได้)
-        // ถ้าเป็น Samsung มักมีกล้องหลายตัว (กล้องมุมกว้าง/เลนส์หลัก)
         selectedDeviceId = videoInputDevices[currentCameraIndex].deviceId;
         
-        console.log("กำลังเปิดกล้อง:", videoInputDevices[currentCameraIndex].label);
+        // --- [เพิ่มส่วนนี้] เตรียม Input ให้พร้อมหลังกดเปิดกล้อง ---
+        const manualInput = document.getElementById('manual-id1');
+        if (manualInput) {
+            manualInput.focus();
+            // ถ้ากด Enter ให้เรียก checkByInput ทันที
+            manualInput.onkeypress = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    checkByInput();
+                }
+            };
+        }
 
         codeReader.decodeFromVideoDevice(selectedDeviceId, 'check-video', (result, err) => {
             if (result) {
                 console.log("Scanned:", result.text);
                 processStudentScan(result.text);
                 
-                // เสียงแจ้งเตือน
                 const audio = new Audio('https://www.soundjay.com/buttons/beep-07a.mp3');
-                audio.play();
-                
-                // เพิ่มระบบสั่น (สำหรับ Android/Samsung) ให้รู้ว่าสแกนติดแล้ว
+                audio.play().catch(() => {});
                 if (navigator.vibrate) navigator.vibrate(100);
             }
         });
     } catch (err) {
         console.error(err);
-        Swal.fire('กล้องขัดข้อง', 'ไม่สามารถเข้าถึงกล้องได้: ' + err.message, 'error');
+        Swal.fire('กล้องขัดข้อง', err.message, 'error');
     }
 }
 
@@ -2360,6 +2427,140 @@ function updateStudentUIStatus(studentId) {
 }
 
 let currentFacingMode = 'environment'; // เริ่มต้นที่กล้องหลัง
+
+// ฟังก์ชันกลางสำหรับบันทึกชื่อ (ใช้ทั้งกล้องและกรอกรหัส)
+async function processAttendance(sid) {
+    if(!currentSes) return Swal.fire('แจ้งเตือน', 'กรุณากดปุ่ม [เริ่มระบบ Global Sync] ก่อนครับ', 'warning');
+    
+    const cleanGr = currentSes.grade.replace(/[.#$[\]]/g, "_");
+    const cleanSub = currentSes.subject.replace(/[.#$[\]]/g, "_");
+    const aid = currentSes.id;
+
+    const std = students.find(s => String(s.id) === String(sid).trim());
+    
+    // 1. ตรวจสอบข้อมูลนักเรียน
+    if(!std) {
+        if(window.soundError) soundError.play();
+        return Swal.fire({ title: 'ไม่พบรหัส!', icon: 'error', timer: 1500, showConfirmButton: false });
+    }
+
+    if(std.grade !== currentSes.grade) {
+        if(window.soundError) soundError.play();
+        return Swal.fire({ 
+            title: 'ผิดห้อง!', 
+            text: `${std.name} อยู่ห้อง ${std.grade}`, 
+            icon: 'warning', 
+            timer: 1500, 
+            showConfirmButton: false 
+        });
+    }
+
+    // 2. คำนวณเวลาและสถานะ
+    const now = new Date(); 
+    const timeStr = now.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' });
+    const [sH, sM] = currentSes.start.split(':'); 
+    const startTime = new Date(currentSes.date); 
+    startTime.setHours(parseInt(sH), parseInt(sM), 0);
+    const status = ((now - startTime) / 60000) > 15 ? "สาย" : "มา";
+    
+    try {
+        // 3. บันทึกลง Firebase
+        await db.ref(`attendance/${cleanGr}/${cleanSub}/${aid}/${std.id}`).set({ 
+            name: std.name, 
+            time: timeStr, 
+            status: status 
+        });
+
+        if(window.soundSuccess) soundSuccess.play();
+        
+        // 4. แสดง Pop-up สำเร็จ
+        await Swal.fire({
+            title: `<span class="${status === 'มา' ? 'text-emerald-600' : 'text-amber-500'} font-black text-3xl">${status === "มา" ? "✅ มาเรียน" : "⏳ มาสาย"}</span>`,
+            html: `
+                <div class="flex flex-col items-center mt-2">
+                    <img src="${std.photo || `https://api.dicebear.com/7.x/initials/svg?seed=${std.id}`}" 
+                         class="w-56 h-56 rounded-[2.5rem] object-cover border-8 border-white shadow-2xl mb-4">
+                    <div class="text-4xl font-black text-slate-800">${std.name}</div>
+                    <div class="text-xl font-bold text-slate-400 mt-1">เวลาบันทึก: ${timeStr}</div>
+                </div>`,
+            timer: 2000,
+            timerProgressBar: true,
+            showConfirmButton: false,
+            backdrop: `rgba(0,0,0,0.4)`
+        });
+        return true;
+    } catch (err) {
+        console.error("Save Error:", err);
+        return false;
+    }
+}
+
+// ฟังก์ชันสำหรับปุ่ม OK
+async function checkManual() {
+    const input = document.getElementById('manual-id');
+    const id = input.value.trim();
+    if(!id) return;
+
+    const success = await processAttendance(id);
+    if(success) {
+        input.value = '';
+        input.focus();
+    }
+}
+
+async function checkByInput() {
+    // 1. ลองดึงจาก ID
+    let el = document.getElementById('manual-id1');
+    
+    // 2. ถ้าดึงแล้วค่าว่าง หรือหาไม่เจอ ให้ลองดึงจาก Class (กันเหนียว)
+    if (!el || el.value === "") {
+        el = document.querySelector('.manual-input-field');
+    }
+
+    if (!el) {
+        console.error("หาช่องกรอกรหัสไม่เจอทั้ง ID และ Class");
+        return;
+    }
+
+    const sid = el.value.trim();
+
+    // เช็คค่าว่างแบบละเอียด
+    if (sid === "") {
+        Swal.fire({
+            title: 'กรุณากรอกรหัส',
+            text: 'ตรวจสอบรหัสใหม่อีกครั้ง',
+            icon: 'warning',
+            timer: 1500,
+            showConfirmButton: false
+        });
+        el.focus(); // ให้เคอร์เซอร์ไปกระพริบที่ช่องนั้น
+        return;
+    }
+
+    try {
+        console.log("กำลังส่งรหัสที่ดึงได้:", sid);
+        
+        // เรียกใช้ฟังก์ชันประมวลผลหลัก
+        await processStudentScan(sid);
+
+        // บันทึกสำเร็จ -> ล้างค่า
+        el.value = '';
+        el.focus();
+
+    } catch (err) {
+        console.error("Error:", err);
+    }
+}
+
+// โค้ดสำหรับกด Enter (วางท้ายไฟล์)
+document.addEventListener('keydown', function(e) {
+    if (e.target && (e.target.id === 'manual-id1' || e.target.classList.contains('manual-input-field'))) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            checkByInput();
+        }
+    }
+});
 
 
     </script>
