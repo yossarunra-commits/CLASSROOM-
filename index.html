@@ -14,7 +14,9 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
-    
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
     <style>
         body { font-family: 'Kanit', sans-serif; background: #f1f5f9; color: #1e293b; }
         .page { display: none; }
@@ -33,6 +35,18 @@
             90% { opacity: 1; }
             100% { top: 100%; opacity: 0; }
         }
+        #tr-body td.sticky, #tr-head th.sticky {
+    position: sticky;
+    background-color: white;
+    z-index: 10;
+        }
+        .sticky-left-0 { left: 0; }
+        .sticky-left-16 { left: 4rem; }
+        .sticky-left-120 { left: 7.5rem; }
+        /* ล็อคหัวตารางและคอลัมน์ชื่อ */
+        #tr-head th { position: sticky; top: 0; z-index: 40; }
+        .sticky-col { position: sticky; left: 0; background-color: white !important; z-index: 30; }
+        .name-col { left: 64px; } /* ปรับตามความกว้างของคอลัมน์เลขที่ */
     </style>
 </head>
 <body>
@@ -64,7 +78,7 @@
                 <button onclick="showPage('admin-monitor')" class="glass p-8 bg-emerald-600 text-white text-lg font-bold hover:scale-105 transition-transform shadow-emerald-200 shadow-lg">🖥️ จอมอนิเตอร์</button>
                 <button onclick="showPage('admin-donow')" class="glass p-8 bg-amber-400 text-white text-lg font-bold">⚡ กิจกรรม Do Now</button>
                 <button onclick="showPage('admin-check'); populateCheckGrade();" class="glass p-8 bg-emerald-500 text-white text-lg font-bold hover:scale-105 transition-all shadow-emerald-200 shadow-lg flex flex-col items-center justify-center gap-3"><span class="text-4xl">📸</span><span>Scan & Check</span></button>
-                <button onclick="showPage('admin-exam')" class="glass p-8 bg-emerald-600 text-white text-xl font-black rounded-[2.5rem] hover:scale-105 transition-transform shadow-emerald-200 shadow-xl flex flex-col items-center gap-3"> <span class="text-4xl">📝</span> จัดการระบบสอบ </button>
+                <button onclick="showPage('admin-exam'); initAdminExamPage();" class="glass p-8 bg-emerald-600 text-white text-xl font-black rounded-[2.5rem] hover:scale-105 transition-transform shadow-emerald-200 shadow-xl flex flex-col items-center gap-3"> <span class="text-4xl">📝</span> จัดการระบบสอบ </button>
                 <button onclick="showPage('admin-random'); populateRandomGrade();" class="glass p-8 bg-orange-500 text-white text-lg font-bold hover:scale-105 transition-transform shadow-orange-200 shadow-lg">🎲 สุ่มเรียกชื่อ</button>
                 <button onclick="showPage('admin-stats')" class="glass p-8 bg-sky-500 text-white text-lg font-bold hover:scale-105 transition-transform shadow-sky-200 shadow-lg">📈 สถิติเข้าเรียน</button>
                 <button onclick="showPage('admin-tracking')" class="glass p-8 bg-rose-500 text-white text-lg font-bold hover:scale-105 transition-transform shadow-rose-200 shadow-lg">📋 ติดตามงาน</button>
@@ -152,83 +166,157 @@
         </button>
         <div class="text-right">
             <h2 class="text-2xl md:text-3xl font-black text-violet-600 tracking-tight">📊 ระบบจัดการคะแนน</h2>
-            <p class="text-slate-400 text-sm font-medium">เชื่อมต่อ Google Sheets แบบ Real-time</p>
+            <p class="text-slate-400 text-sm font-medium">จัดการผ่านลิงก์ หรือ สร้าง Template ส่วนตัว</p>
         </div>
     </div>
 
-    <div class="max-w-7xl mx-auto bg-white p-6 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-violet-100 mb-6">
+    <div class="max-w-7xl mx-auto bg-white p-6 rounded-[2.5rem] shadow-xl border border-violet-100 mb-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="space-y-2">
                 <label class="block text-xs font-black text-violet-400 ml-4 uppercase tracking-widest">1. เลือกชั้นเรียน</label>
-                <select id="sc-grade" onchange="updateSubFilter(this.value, 'sc-sub'); checkScoreSetupReady();" class="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-violet-300 focus:bg-white rounded-2xl font-bold text-slate-700 outline-none transition-all"></select>
+                <select id="sc-grade" onchange="updateSubFilter(this.value, 'sc-sub'); resetScoreConfig();" class="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-violet-300 rounded-2xl font-bold text-slate-700 outline-none transition-all"></select>
             </div>
             <div class="space-y-2">
-                <label class="block text-xs font-black text-violet-400 ml-4 uppercase tracking-widest">2. เลือกวิชาที่ต้องการจัดการ</label>
-                <select id="sc-sub" onchange="checkScoreSetupReady()" class="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-violet-300 focus:bg-white rounded-2xl font-bold text-slate-700 outline-none transition-all"></select>
+                <label class="block text-xs font-black text-violet-400 ml-4 uppercase tracking-widest">2. เลือกวิชา</label>
+                <select id="sc-sub" onchange="showMethodSelection()" class="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-violet-300 rounded-2xl font-bold text-slate-700 outline-none transition-all"></select>
             </div>
         </div>
     </div>
 
-    <div id="sheets-config-area" class="max-w-7xl mx-auto bg-violet-50 p-8 rounded-[3rem] border-4 border-dashed border-violet-200 mb-8 hidden animate-in fade-in">
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div class="md:col-span-4 space-y-2">
-            <label class="text-sm font-bold text-slate-600 ml-2">1. วางลิงก์ Google Sheets</label>
-            <input type="text" id="sc-sheet-url" 
-                   disabled
-                   placeholder="❌ โปรดเลือกชั้นและวิชาก่อน..." 
-                   class="w-full p-5 bg-slate-200 border-none rounded-3xl shadow-sm outline-none font-medium cursor-not-allowed opacity-60 transition-all">
-        </div>
-
-        <div class="md:col-span-2 space-y-2">
-            <label class="text-xs font-black text-emerald-500 ml-4 uppercase tracking-widest">2. ชื่อแผ่นงาน (Tab Name)</label>
-            <input type="text" id="sc-sheet-name" value="Sheet1" 
-                   disabled
-                   class="w-full p-4 bg-slate-200 border-none rounded-2xl font-bold text-slate-400 cursor-not-allowed opacity-60 outline-none">
-        </div>
-
-        <div class="md:col-span-1 space-y-2">
-            <label class="text-xs font-black text-violet-400 ml-4 uppercase tracking-widest">3. เริ่มแถวที่</label>
-            <input type="number" id="sc-row-start" value="5" 
-                   disabled
-                   class="w-full p-4 bg-slate-200 border-none rounded-2xl text-center font-bold text-slate-400 cursor-not-allowed opacity-60 shadow-sm">
-        </div>
-
-        <div class="md:col-span-1 flex items-end">
-            <button id="sc-btn-sync" 
-                    onclick="syncScoreFromSheets()" 
-                    disabled
-                    class="w-full py-4 bg-slate-300 text-white rounded-2xl font-black shadow-none cursor-not-allowed transition-all">
-                🚀 ดึงข้อมูล
+    <div id="method-selection" class="max-w-7xl mx-auto mb-6 hidden animate-in zoom-in duration-300">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button onclick="switchScoreMode('link')" class="p-6 bg-white border-2 border-slate-100 rounded-[2rem] hover:border-violet-500 hover:bg-violet-50 transition-all group text-left">
+                <div class="text-3xl mb-2">🔗</div>
+                <h4 class="font-black text-slate-700">ใช้ลิงก์ Google Sheets</h4>
+                <p class="text-slate-400 text-xs">ดึงข้อมูลอัตโนมัติจากไฟล์ที่สร้างไว้แล้ว</p>
+            </button>
+            <button onclick="switchScoreMode('template')" class="p-6 bg-white border-2 border-slate-100 rounded-[2rem] hover:border-emerald-500 hover:bg-emerald-50 transition-all group text-left">
+                <div class="text-3xl mb-2">📄</div>
+                <h4 class="font-black text-slate-700">สร้าง Template ใหม่</h4>
+                <p class="text-slate-400 text-xs">กำหนดหัวข้อคะแนนเอง และโหลดไฟล์ Excel</p>
             </button>
         </div>
     </div>
-</div>
 
-    <p class="text-[10px] text-slate-400 ml-4">*พิมพ์ชื่อแท็บที่อยู่ด้านล่างของไฟล์ Google Sheets ของคุณ</p>
-</div>
-    
-    <div class="hidden"> <input type="text" id="sc-col-name" value="C">
-        <input type="text" id="sc-col-nickname" value="E"> <input type="number" id="sc-row-start" value="5">
-    </div>
-</div>
-    </div>
-
-    <div id="score-preview-container" class="max-w-7xl mx-auto hidden">
-        <div class="bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100">
-            <div class="p-6 bg-slate-900 flex justify-between items-center">
-                <h3 class="text-white font-bold flex items-center gap-2">
-                    <span class="w-3 h-3 bg-emerald-400 rounded-full animate-pulse"></span> ข้อมูลที่ดึงมาจาก Sheets
-                </h3>
-                <button onclick="saveAllScoresToDB()" class="px-6 py-2 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 transition-all">บันทึกลงระบบ</button>
+    <div id="config-link-area" class="max-w-7xl mx-auto bg-violet-50 p-8 rounded-[3rem] border-4 border-dashed border-violet-200 mb-8 hidden">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="md:col-span-4 space-y-2">
+                <label class="text-sm font-bold text-slate-600 ml-2">วางลิงก์ Google Sheets</label>
+                <input type="text" id="sc-sheet-url" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full p-5 bg-white border-none rounded-3xl shadow-sm outline-none font-medium">
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left">
-                    <thead id="sc-preview-head" class="bg-slate-800 text-slate-300 text-[10px] uppercase tracking-widest"></thead>
-                    <tbody id="sc-preview-body" class="divide-y divide-slate-50"></tbody>
-                </table>
+            <div class="md:col-span-2 space-y-2">
+                <label class="text-xs font-black text-emerald-500 ml-4 uppercase tracking-widest">ชื่อแผ่นงาน (Tab Name)</label>
+                <input type="text" id="sc-sheet-name" value="งาน" class="w-full p-4 bg-white border-none rounded-2xl font-bold text-slate-700">
+            </div>
+            <div class="md:col-span-1 space-y-2">
+                <label class="text-xs font-black text-violet-400 ml-4 uppercase tracking-widest">เริ่มแถวที่</label>
+                <input type="number" id="sc-row-start" value="2" class="w-full p-4 bg-white border-none rounded-2xl text-center font-bold text-slate-700">
+            </div>
+            <div class="md:col-span-1 flex items-end">
+                <button onclick="syncScoreFromSheets()" class="w-full py-4 bg-violet-600 text-white rounded-2xl font-black shadow-lg hover:bg-violet-700 transition-all">🚀 ดึงข้อมูล</button>
             </div>
         </div>
     </div>
+
+    <div id="config-template-area" class="max-w-7xl mx-auto bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 mb-8 hidden">
+    <div class="flex items-center gap-3 mb-8">
+        <div class="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-2xl">🛠️</div>
+        <div>
+            <h3 class="text-2xl font-black text-slate-800">ตั้งค่าโครงสร้างคะแนน</h3>
+            <p class="text-slate-400 text-sm">เพิ่มหรือลบหัวข้อคะแนนได้ตามต้องการ</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+        <div class="space-y-4">
+            <h4 class="font-black text-emerald-600 px-4 flex items-center gap-2">
+                <span class="w-2 h-6 bg-emerald-500 rounded-full"></span>
+                ก่อนกลางภาค
+            </h4>
+            <div id="pre-task-container" class="space-y-2">
+                </div>
+            <button onclick="addTaskRow('pre')" class="w-full p-4 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 font-bold hover:border-emerald-400 hover:text-emerald-500 transition-all">
+                + เพิ่มช่องคะแนน
+            </button>
+        </div>
+
+        <div class="space-y-4">
+            <h4 class="font-black text-indigo-600 px-4 flex items-center gap-2">
+                <span class="w-2 h-6 bg-indigo-500 rounded-full"></span>
+                หลังกลางภาค
+            </h4>
+            <div id="post-task-container" class="space-y-2">
+                </div>
+            <button onclick="addTaskRow('post')" class="w-full p-4 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 font-bold hover:border-indigo-400 hover:text-indigo-500 transition-all">
+                + เพิ่มช่องคะแนน
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10 border-t pt-8">
+        <div class="flex items-center gap-4 bg-orange-50 p-4 rounded-3xl border border-orange-100">
+            <span class="font-black text-orange-600 min-w-[100px]">กลางภาค</span>
+            <input type="number" id="mid-max" value="20" class="w-full p-3 rounded-2xl border-none font-black text-center text-orange-600 outline-none" placeholder="คะแนนเต็ม">
+        </div>
+        <div class="flex items-center gap-4 bg-rose-50 p-4 rounded-3xl border border-rose-100">
+            <span class="font-black text-rose-600 min-w-[100px]">ปลายภาค</span>
+            <input type="number" id="final-max" value="30" class="w-full p-3 rounded-2xl border-none font-black text-center text-rose-600 outline-none" placeholder="คะแนนเต็ม">
+        </div>
+    </div>
+
+    <div class="flex flex-wrap gap-4 items-center justify-between border-t pt-8 mt-6">
+    <button onclick="generateTemplatePreview()" class="px-12 py-4 bg-slate-900 text-white rounded-[2rem] font-black hover:scale-105 transition-all shadow-xl shadow-slate-200">
+        สร้างตาราง
+    </button>
+    
+    <div class="flex flex-wrap items-center gap-3 bg-slate-50 p-3 rounded-[2.5rem] border border-slate-100 shadow-sm">
+        <span class="text-xs font-black text-slate-400 ml-4 uppercase tracking-widest">คัดลอก Template ไปยัง:</span>
+        
+        <select id="copy-grade" onchange="updateSubFilter(this.value, 'copy-sub')" class="bg-white border-none rounded-2xl text-xs font-bold p-3 outline-none shadow-sm min-w-[120px]">
+            <option value="">เลือกชั้นเรียน</option>
+            </select>
+
+        <select id="copy-sub" class="bg-white border-none rounded-2xl text-xs font-bold p-3 outline-none shadow-sm min-w-[150px]">
+            <option value="">เลือกวิชา</option>
+        </select>
+
+        <button onclick="confirmCopyTemplate()" class="bg-indigo-600 text-white px-6 py-3 rounded-2xl text-xs font-black hover:bg-indigo-700 transition-all shadow-md">
+            ยืนยันการคัดลอก
+        </button>
+    </div>
+</div>
+</div>
+
+<div id="score-preview-container" class="max-w-7xl mx-auto hidden animate-in fade-in slide-in-from-bottom duration-700">
+    <div class="flex flex-wrap items-center justify-between mb-6 gap-4">
+        <h3 class="text-2xl font-black text-slate-800 flex items-center gap-3">
+            📋 ตารางบันทึกคะแนน
+        </h3>
+        <div class="flex gap-3">
+            <button onclick="exportTemplateToExcel()" class="px-6 py-3 bg-emerald-100 text-emerald-700 rounded-2xl font-bold flex items-center gap-2 hover:bg-emerald-200 transition-all">
+                📥 ดาวน์โหลด Excel
+            </button>
+            <label class="px-6 py-3 bg-indigo-100 text-indigo-700 rounded-2xl font-bold flex items-center gap-2 hover:bg-indigo-200 transition-all cursor-pointer">
+                📤 อัปโหลดคะแนน
+                <input type="file" class="hidden" onchange="importScoreFromExcel(this)">
+            </label>
+            <button onclick="saveAllScoresToDB()" class="px-8 py-3 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">
+                บันทึกเข้าระบบ
+            </button>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-slate-100">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead id="sc-preview-head">
+                    </thead>
+                <tbody id="sc-preview-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 </section>
 
         <section id="page-admin-stats" class="page">
@@ -361,16 +449,68 @@
             <div id="std-subject-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
         </section>
 
-        <section id="page-std-subject-menu" class="page">
-            <button onclick="showPage('std-dashboard')" class="mb-4 font-bold text-slate-400">← ย้อนกลับ</button>
-            <h2 id="std-menu-sub-title" class="text-4xl font-bold mb-10 italic text-indigo-700"></h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <button onclick="showStdDoNow()" class="glass p-12 bg-amber-400 text-white text-2xl font-bold hover:scale-105 transition-transform shadow-xl shadow-amber-100">⚡ DO NOW</button>
-                <button onclick="showStdScores()" class="glass p-12 bg-indigo-600 text-white text-2xl font-bold hover:scale-105 transition-transform shadow-xl shadow-indigo-100">🏆 SCORES</button>
-                <button onclick="showStdPending()" class="glass p-12 bg-rose-500 text-white text-2xl font-bold hover:scale-105 transition-transform shadow-xl shadow-rose-100">📋 PENDING</button>
-                <button onclick="showPage()" class="glass p-12 bg-emerald-600 text-white text-2xl font-black hover:scale-105 transition-transform shadow-indigo-200 shadow-xl flex flex-col items-center gap-3"><span class="text-4xl">📍</span>ข้อสอบ</button>
+        <section id="page-std-subject-menu" class="page max-w-6xl mx-auto px-4 py-8">
+    <button onclick="showPage('std-dashboard')" class="mb-8 flex items-center gap-2 font-black text-slate-400 hover:text-indigo-600 transition-colors uppercase text-xs tracking-widest">
+        <span class="text-lg">←</span> กลับหน้าหลัก
+    </button>
+
+    <div class="mb-12">
+        <p class="text-indigo-500 font-black text-sm uppercase tracking-[0.3em] mb-2">Subject Menu</p>
+        <h2 id="std-menu-sub-title" class="text-6xl font-black text-slate-900 tracking-tighter leading-none italic"></h2>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        
+        <button onclick="showStdDoNow()" class="group relative p-10 bg-white border-2 border-slate-100 rounded-[3rem] shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 overflow-hidden text-left">
+            <div class="absolute top-0 left-0 w-full h-2 bg-amber-400"></div>
+            <div class="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:scale-110 transition-transform">⚡</div>
+            <h3 class="text-2xl font-black text-slate-800 tracking-tighter mb-2">DO NOW</h3>
+            <p class="text-slate-400 text-xs font-bold leading-relaxed">กิจกรรมเช็คชื่อและกิจกรรมเริ่มต้นบทเรียน</p>
+        </button>
+
+        <button onclick="showStdScores()" class="group relative p-10 bg-white border-2 border-slate-100 rounded-[3rem] shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 overflow-hidden text-left">
+            <div class="absolute top-0 left-0 w-full h-2 bg-indigo-600"></div>
+            <div class="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:scale-110 transition-transform">🏆</div>
+            <h3 class="text-2xl font-black text-slate-800 tracking-tighter mb-2">SCORES</h3>
+            <p class="text-slate-400 text-xs font-bold leading-relaxed">ตรวจสอบคะแนนสะสมและเกรดเฉลี่ยปัจจุบัน</p>
+        </button>
+
+        <button onclick="showStdPending()" class="group relative p-10 bg-white border-2 border-slate-100 rounded-[3rem] shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 overflow-hidden text-left">
+            <div class="absolute top-0 left-0 w-full h-2 bg-rose-500"></div>
+            <div class="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:scale-110 transition-transform">📋</div>
+            <h3 class="text-2xl font-black text-slate-800 tracking-tighter mb-2">PENDING</h3>
+            <p class="text-slate-400 text-xs font-bold leading-relaxed">รายการงานค้างที่ยังไม่ได้ส่งเข้าสู่ระบบ</p>
+        </button>
+
+        <button onclick="loadStudentExam()" class="group relative p-10 bg-white border-2 border-slate-100 rounded-[3rem] shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 overflow-hidden text-left">
+            <div class="absolute top-0 left-0 w-full h-2 bg-emerald-500"></div>
+            <div class="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:scale-110 transition-transform">📍</div>
+            <h3 class="text-2xl font-black text-slate-800 tracking-tighter mb-2">EXAM</h3>
+            <p class="text-slate-400 text-xs font-bold leading-relaxed">ระบบทำข้อสอบและประเมินผลออนไลน์</p>
+        </button>
+
+    </div>
+</section>
+
+<section id="page-exam-page" class="page hidden px-4 max-w-4xl mx-auto py-10">
+    <div class="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-50">
+        <div class="flex justify-between items-center mb-8 border-b pb-6">
+            <div>
+                <h2 id="student-exam-title" class="text-3xl font-black text-slate-800">วิชา: ...</h2>
+                <p class="text-slate-400 font-bold">กรุณาเลือกคำตอบที่ถูกต้องที่สุด</p>
             </div>
-        </section>
+            <div id="exam-timer" class="text-2xl font-black text-rose-500 bg-rose-50 px-6 py-2 rounded-2xl">
+                00:00
+            </div>
+        </div>
+
+        <div id="student-questions-container" class="space-y-10"></div>
+
+        <button onclick="submitExam()" class="w-full mt-10 bg-emerald-500 text-white p-8 rounded-[2rem] font-black text-2xl shadow-lg shadow-emerald-100 hover:scale-[1.02] transition-all">
+            ส่งข้อสอบและตรวจคะแนน 🚩
+        </button>
+    </div>
+</section>
 
         <section id="page-std-content-view" class="page">
     <button onclick="showPage('std-subject-menu')" class="mb-4 font-bold text-slate-400">← ย้อนกลับ</button>
@@ -634,28 +774,90 @@
     </div>
 </section>
 
-</section>
-<div  id="page-admin-exam" class="page px-4">
-    <div class="max-w-4xl mx-auto">
-        <div class="flex items-center gap-4 mb-8">
-            <button onclick="showPage('admin-menu')" class="w-12 h-12 glass flex items-center justify-center rounded-2xl text-2xl">⬅️</button>
-            <h2 class="text-3xl font-black text-slate-800">จัดการระบบสอบ</h2>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div onclick="openQuestionEditor()" class="glass p-6 border-2 border-dashed border-indigo-200 hover:border-indigo-500 cursor-pointer transition-all rounded-3xl text-center">
-                <div class="text-4xl mb-2">➕</div>
-                <div class="font-bold text-indigo-600">สร้าง/แก้ไขโจทย์ข้อสอบ</div>
+<section id="page-admin-exam" class="page px-4 max-w-6xl mx-auto py-8">
+    <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center gap-4">
+            <button onclick="showPage('admin-menu')" class="w-12 h-12 bg-white shadow-sm flex items-center justify-center rounded-2xl text-xl border border-slate-100 hover:bg-slate-50 transition-all">⬅️</button>
+            <div>
+                <h2 class="text-3xl font-black text-slate-800 tracking-tighter">จัดการระบบสอบ</h2>
+                <p class="text-slate-400 text-sm font-bold">Dashboard ควบคุมและสร้างข้อสอบ</p>
             </div>
-            
-            <div onclick="showExamResults()" class="glass p-6 border-2 border-dashed border-emerald-200 hover:border-emerald-500 cursor-pointer transition-all rounded-3xl text-center">
-                <div class="text-4xl mb-2">📊</div>
-                <div class="font-bold text-emerald-600">ดูคะแนนสอบนักเรียน</div>
+        </div>
+        
+        <div class="flex gap-3 bg-white p-2 rounded-[1.5rem] shadow-sm border border-slate-100">
+            <button onclick="viewScores()" class="flex items-center gap-2 bg-amber-50 text-amber-600 px-5 py-3 rounded-xl font-black hover:bg-amber-100 transition-all text-sm">
+                📊 ดูคะแนน
+            </button>
+            <button id="btn-toggle-exam" onclick="toggleExamStatus()" class="flex items-center gap-2 bg-emerald-500 text-white px-5 py-3 rounded-xl font-black shadow-lg shadow-emerald-100 transition-all text-sm">
+                <span>🟢</span> กำลังเปิดสอบ
+            </button>
+        </div>
+    </div>
+
+    <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+            <div class="md:col-span-3">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 block ml-1">1. เลือกชั้นเรียน</label>
+                <select id="select-grade" onchange="filterSubjectsByGrade()" class="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl font-bold text-slate-800 focus:border-indigo-500 focus:bg-white outline-none transition-all">
+                    <option value="">--- เลือกชั้นเรียน ---</option>
+                </select>
+            </div>
+            <div class="md:col-span-4">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 block ml-1">2. เลือกวิชา</label>
+                <select id="select-subject" onchange="showImportMethods()" class="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl font-bold text-slate-800 focus:border-indigo-500 focus:bg-white outline-none transition-all disabled:opacity-50" disabled>
+                    <option value="">--- กรุณาเลือกชั้นเรียนก่อน ---</option>
+                </select>
+            </div>
+            <div class="md:col-span-5">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 block ml-1">3. วิธีจัดการข้อสอบ</label>
+                <div id="method-options" class="flex gap-2 opacity-50 pointer-events-none transition-all">
+                    <button onclick="preparePasteMode()" class="flex-1 bg-indigo-600 text-white p-4 rounded-2xl font-black text-sm hover:shadow-lg hover:shadow-indigo-100 transition-all shadow-md">📝 วางข้อความใหม่</button>
+                    <button onclick="loadExamDataDirect()" class="flex-1 bg-white border-2 border-slate-100 text-slate-600 p-4 rounded-2xl font-black text-sm hover:bg-slate-50 transition-all">⚙️ แก้ไขข้อสอบเดิม</button>
+                </div>
             </div>
         </div>
     </div>
-</div>
+
+    <div id="exam-work-area" class="hidden animate-in fade-in duration-500">
+        <div id="paste-section" class="hidden space-y-4">
+            <div class="flex items-center gap-3 bg-amber-50 p-5 rounded-3xl border border-amber-100">
+                <span class="text-2xl">💡</span>
+                <p class="text-amber-700 text-sm font-bold leading-relaxed">
+                    วางโจทย์ที่มีเลขข้อ (1. 2. 3.) และตัวเลือก (ก. ข. ค. ง.) ระบบ Smart AI จะแยกข้อและจัดเตรียมตัวเลือกให้คุณครูอัตโนมัติ
+                </p>
+            </div>
+            
+            <div class="relative group">
+                <textarea id="main-paste-area" 
+                    class="w-full h-80 p-8 bg-white border-2 border-dashed border-slate-200 rounded-[3rem] outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all font-sans text-lg leading-relaxed shadow-inner" 
+                    placeholder="วางเนื้อหาข้อสอบจาก Word หรือ PDF ที่นี่..."></textarea>
+                <div class="absolute bottom-6 right-6 text-slate-300 font-bold pointer-events-none group-focus-within:hidden">
+                    Paste content here...
+                </div>
+            </div>
+
+            <button onclick="processSmartPaste()" class="w-full bg-slate-900 text-white p-7 rounded-[2.5rem] font-black text-xl shadow-2xl shadow-slate-200 hover:bg-indigo-600 hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-3">
+                <span>⚡</span> วิเคราะห์ข้อมูลและสร้างโจทย์ทันที
+            </button>
+        </div>
+    </div>
+
+    <div id="preview-section" class="hidden mt-12 space-y-8 pb-20">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-6">
+            <div>
+                <h3 class="text-2xl font-black text-slate-800">📋 ตรวจทานความถูกต้อง</h3>
+                <p class="text-slate-400 font-bold text-sm">กรุณาเลือกคำตอบที่ถูกต้องสำหรับแต่ละข้อ</p>
+            </div>
+            <button onclick="saveAllQuestions()" class="bg-emerald-500 text-white px-10 py-4 rounded-[1.5rem] font-black shadow-xl shadow-emerald-100 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 text-lg">
+                🚀 บันทึกข้อมูลทั้งหมด
+            </button>
+        </div>
+
+        <div id="questions-list" class="grid grid-cols-1 gap-6">
+            </div>
+    </div>
 </section>
+
 
     </main>
 
@@ -1024,49 +1226,470 @@ function startGlobalMonitor() {
 }
 
         // --- 5. SCORE & TRACKING (NEW VERSION) ---
+let tempColsPre = [];  // งานก่อนกลางภาค
+let tempColsPost = []; // งานหลังกลางภาค
 
-// 1. ฟังก์ชันเช็คความพร้อมก่อนแสดงส่วนวางลิงก์
-function checkScoreSetupReady() {
+// ฟังก์ชันเปิด Modal เพิ่มหลายงานพร้อมกัน
+function openBulkAddModal(type) {
+    const typeText = type === 'pre' ? 'ก่อนกลางภาค' : 'หลังกลางภาค';
+    Swal.fire({
+        title: `เพิ่มงาน (${typeText})`,
+        html: `
+            <div class="text-left space-y-3 p-2">
+                <p class="text-[10px] font-bold text-slate-400 uppercase">ใส่ชื่อชื่อเรื่องและคะแนนเต็ม (คั่นด้วยเครื่องหมายจุลภาค ,)</p>
+                <textarea id="bulk-tasks" class="w-full p-4 border-2 border-slate-100 rounded-2xl h-40 font-bold text-sm" 
+                    placeholder="ใบงานที่ 1, 10&#10;ใบงานที่ 2, 10&#10;ทดสอบย่อย, 20"></textarea>
+                <p class="text-[10px] text-rose-400">* 1 บรรทัด คือ 1 งาน (เช่น: ชื่อเรื่อง, คะแนน)</p>
+            </div>
+        `,
+        confirmButtonText: 'บันทึกทั้งหมด',
+        showCancelButton: true,
+        confirmButtonColor: '#10b981',
+        preConfirm: () => {
+            const text = document.getElementById('bulk-tasks').value;
+            if (!text) return Swal.showValidationMessage('กรุณากรอกข้อมูล');
+            return text;
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const lines = result.value.split('\n');
+            lines.forEach(line => {
+                const parts = line.split(',');
+                if (parts.length >= 2) {
+                    const title = parts[0].trim();
+                    const max = parseInt(parts[1].trim()) || 10;
+                    if (type === 'pre') tempColsPre.push({ title, max });
+                    else tempColsPost.push({ title, max });
+                }
+            });
+            renderTemplateSetup(); // อัปเดตหัวตาราง
+            renderStructureList(); // อัปเดตรายการปุ่มลบ
+            Swal.fire('สำเร็จ', `เพิ่มงาน ${lines.length} รายการเรียบร้อย`, 'success');
+        }
+    });
+}
+
+// ฟังก์ชันแสดงรายการงานพร้อมปุ่มลบ
+function renderStructureList() {
+    // ฟังก์ชันนี้จะช่วยให้คุณครูเห็นรายการงานทั้งหมดและกดลบได้
+    renderTemplateSetup(); // เรียกใช้ฟังก์ชันเดิมเพื่ออัปเดตหัวตาราง
+}
+
+// 1 & 2. เมื่อเลือกวิชา ให้โชว์ทางเลือก
+function showMethodSelection() {
+    const sub = document.getElementById('sc-sub').value;
+    if(sub) {
+        document.getElementById('method-selection').classList.remove('hidden');
+    }
+}
+
+// 3. สลับโหมดลิงก์ หรือ Template
+function switchScoreMode(mode) {
+    document.getElementById('config-link-area').classList.add('hidden');
+    document.getElementById('config-template-area').classList.add('hidden');
+    document.getElementById('score-preview-container').classList.add('hidden');
+
+    if(mode === 'link') {
+        document.getElementById('config-link-area').classList.remove('hidden');
+    } else {
+        document.getElementById('config-template-area').classList.remove('hidden');
+        renderTemplateSetup();
+    }
+}
+
+// 5. จัดการโครงสร้าง Template
+function addTemplateColumn(type) {
+    Swal.fire({
+        title: 'เพิ่มหัวข้อคะแนน',
+        html: `
+            <input id="swal-title" class="swal2-input" placeholder="ชื่อหัวข้อ (เช่น ใบงานที่ 1)">
+            <input id="swal-max" type="number" class="swal2-input" placeholder="คะแนนเต็ม">
+        `,
+        confirmButtonText: 'เพิ่ม',
+        showCancelButton: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const title = document.getElementById('swal-title').value || 'หัวข้อใหม่';
+            const max = parseInt(document.getElementById('swal-max').value) || 10;
+            if(type === 'pre') tempColsPre.push({title, max});
+            else tempColsPost.push({title, max});
+            renderTemplateSetup();
+        }
+    });
+}
+
+// ปรับปรุงฟังก์ชัน Render หัวตารางให้มีปุ่มลบ (แก้ไขจากเดิม)
+function renderTemplateSetup() {
+    const h1 = document.getElementById('temp-head-1');
+    const h2 = document.getElementById('temp-head-2');
+    
+    let html1 = `<th rowspan="2" class="p-4 border border-slate-700 bg-slate-800">รายชื่อนักเรียน</th>`;
+    let html2 = "";
+
+    // ส่วนที่ 1: ก่อนกลางภาค
+    tempColsPre.forEach((c, i) => {
+        html1 += `
+            <th class="p-2 border border-slate-700 bg-emerald-600 text-center relative group">
+                <div class="text-[10px]">${c.title}</div>
+                <button onclick="removeTask('pre', ${i})" class="absolute -top-1 -right-1 bg-rose-500 text-white w-4 h-4 rounded-full text-[8px] opacity-0 group-hover:opacity-100 transition-all">×</button>
+            </th>`;
+        html2 += `<th class="p-1 border border-slate-700 bg-slate-800 text-center text-emerald-400 font-bold">(${c.max})</th>`;
+    });
+
+    // กลางภาค (ลบไม่ได้)
+    html1 += `<th class="p-2 border border-slate-700 bg-amber-500 text-center">กลางภาค</th>`;
+    html2 += `<th class="p-1 border border-slate-700 bg-slate-800 text-center text-amber-400 font-bold">คะแนน</th>`;
+
+    // ส่วนที่ 2: หลังกลางภาค
+    tempColsPost.forEach((c, i) => {
+        html1 += `
+            <th class="p-2 border border-slate-700 bg-emerald-600 text-center relative group">
+                <div class="text-[10px]">${c.title}</div>
+                <button onclick="removeTask('post', ${i})" class="absolute -top-1 -right-1 bg-rose-500 text-white w-4 h-4 rounded-full text-[8px] opacity-0 group-hover:opacity-100 transition-all">×</button>
+            </th>`;
+        html2 += `<th class="p-1 border border-slate-700 bg-slate-800 text-center text-emerald-400 font-bold">(${c.max})</th>`;
+    });
+
+    // ปลายภาค (ลบไม่ได้)
+    html1 += `<th class="p-2 border border-slate-700 bg-rose-500 text-center">ปลายภาค</th>`;
+    html2 += `<th class="p-1 border border-slate-700 bg-slate-800 text-center text-rose-400 font-bold">คะแนน</th>`;
+    
+    html1 += `<th rowspan="2" class="p-2 border border-slate-700 bg-indigo-600 text-center">รวม/เกรด</th>`;
+
+    h1.innerHTML = html1;
+    h2.innerHTML = html2;
+}
+
+// ฟังก์ชันลบงานรายชิ้น
+function removeTask(type, index) {
+    if (type === 'pre') {
+        tempColsPre.splice(index, 1);
+    } else {
+        tempColsPost.splice(index, 1);
+    }
+    renderTemplateSetup();
+}
+
+// ฟังก์ชันบันทึกโครงสร้าง (Template) เก็บไว้ใช้ข้ามห้อง
+async function saveTemplateStructure() {
+    const sub = document.getElementById('sc-sub').value;
+    if (!sub) return Swal.fire('โปรดเลือกวิชา');
+
+    const structure = {
+        pre: tempColsPre,
+        post: tempColsPost,
+        lastUpdated: new Date().getTime()
+    };
+
+    try {
+        await db.ref(`score_templates/${sub}`).set(structure);
+        Swal.fire({
+            icon: 'success',
+            title: 'บันทึกโครงสร้างเรียบร้อย',
+            text: 'คุณสามารถใช้รูปแบบนี้กับห้องอื่นๆ ในวิชานี้ได้ทันที',
+            timer: 2000
+        });
+    } catch (e) {
+        Swal.fire('Error', 'ไม่สามารถบันทึกได้', 'error');
+    }
+}
+function addTaskRow(type, title = '', max = 10) {
+    const container = document.getElementById(`${type}-task-container`);
+    const rowId = Date.now() + Math.random(); // สร้าง ID สุ่มสำหรับอ้างอิงตอนลบ
+    
+    const div = document.createElement('div');
+    div.className = "flex items-center gap-2 animate-in fade-in slide-in-from-left duration-300";
+    div.id = `row-${rowId}`;
+    
+    div.innerHTML = `
+        <div class="flex-1 bg-slate-50 p-1 rounded-2xl flex items-center border border-slate-100 shadow-sm">
+            <input type="text" placeholder="ชื่อวิชา/งาน" value="${title}" 
+                   class="task-title w-full p-3 bg-transparent border-none font-bold text-slate-700 outline-none">
+        </div>
+        <div class="w-24 bg-slate-50 p-1 rounded-2xl flex items-center border border-slate-100 shadow-sm">
+            <input type="number" placeholder="เต็ม" value="${max}" 
+                   class="task-max w-full p-3 bg-transparent border-none font-black text-center text-indigo-500 outline-none">
+        </div>
+        <button onclick="removeTaskRow('row-${rowId}')" 
+                class="w-12 h-12 flex items-center justify-center bg-rose-50 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all shadow-sm">
+            <span class="text-xl">×</span>
+        </button>
+    `;
+    
+    container.appendChild(div);
+}
+
+// ฟังก์ชันลบแถวงาน
+function removeTaskRow(rowId) {
+    const row = document.getElementById(rowId);
+    if (row) {
+        row.classList.add('animate-out', 'fade-out', 'slide-out-to-right', 'duration-300');
+        setTimeout(() => row.remove(), 250);
+    }
+}
+// ฟังก์ชันยืนยันการคัดลอก Template
+async function confirmCopyTemplate() {
+    const targetGrade = document.getElementById('copy-grade').value;
+    const targetSub = document.getElementById('copy-sub').value;
+
+    // 1. เช็คว่าเลือกปลายทางหรือยัง
+    if (!targetGrade || !targetSub) {
+        return Swal.fire('ข้อมูลไม่ครบ', 'โปรดเลือกชั้นเรียนและวิชาปลายทาง', 'warning');
+    }
+
+    // 2. ดึงข้อมูลจากช่องที่ครูพิมพ์อยู่ปัจจุบัน
+    const currentTemplate = {
+        pre: [],
+        post: [],
+        midMax: parseInt(document.getElementById('mid-max').value) || 20,
+        finalMax: parseInt(document.getElementById('final-max').value) || 30
+    };
+
+    // เก็บชื่อหัวข้อ (ต้องใช้ class ให้ตรงกับในช่อง Input)
+    document.querySelectorAll('#pre-task-container .task-title').forEach((el, i) => {
+        const maxVal = document.querySelectorAll('#pre-task-container .task-max')[i].value;
+        if (el.value.trim()) currentTemplate.pre.push({ title: el.value, max: parseInt(maxVal) || 0 });
+    });
+
+    document.querySelectorAll('#post-task-container .task-title').forEach((el, i) => {
+        const maxVal = document.querySelectorAll('#post-task-container .task-max')[i].value;
+        if (el.value.trim()) currentTemplate.post.push({ title: el.value, max: parseInt(maxVal) || 0 });
+    });
+
+    // 3. ยืนยันการคัดลอก
+    const result = await Swal.fire({
+        title: 'ยืนยันการคัดลอก?',
+        text: `บันทึกรูปแบบนี้ไปยังวิชา ${targetSub} (${targetGrade})`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'ตกลง',
+        cancelButtonText: 'ยกเลิก'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            // แก้ไข Path ให้สั้นและปลอดภัยขึ้น
+            // บันทึกไปที่ score_templates > ชื่อวิชา > ชั้นเรียน
+            await db.ref('score_templates').child(targetSub).child(targetGrade).set(currentTemplate);
+            
+            Swal.fire('สำเร็จ!', 'คัดลอกรูปแบบคะแนนเรียบร้อย', 'success');
+        } catch (error) {
+            console.error("Firebase Error:", error);
+            Swal.fire('เกิดข้อผิดพลาด', `สาเหตุ: ${error.message}`, 'error');
+        }
+    }
+}
+
+// เพิ่มเติม: เรียกใช้ฟังก์ชันเติมชั้นเรียนใน select ตอนเปิดหน้า
+function initCopyFilter() {
+    const copyGradeSelect = document.getElementById('copy-grade');
+    // ดึงชั้นเรียนจากตัวแปรที่มีอยู่ (เช่น grades[])
+    if (typeof grades !== 'undefined') {
+        copyGradeSelect.innerHTML = '<option value="">เลือกชั้นเรียน</option>' + 
+            grades.map(g => `<option value="${g}">${g}</option>`).join('');
+    }
+}
+
+// ฟังก์ชันสร้าง Preview ตารางจริง
+function generateTemplatePreview() {
+    const grade = document.getElementById('sc-grade').value;
+    const roomStudents = students.filter(s => s.grade === grade);
+    const midScoreMax = document.getElementById('mid-max').value || 20;
+    const finalScoreMax = document.getElementById('final-max').value || 30;
+    
+    
+    if(roomStudents.length === 0) return Swal.fire('ไม่พบรายชื่อนักเรียน', 'กรุณาเลือกชั้นเรียนใหม่', 'warning');
+
+    // 1. ส่วนหัวตาราง (คงเดิมตามโครงสร้างที่ตกลงกัน)
+    let headHtml = `
+        <tr class="bg-slate-800 text-white text-[12px]">
+            <th rowspan="2" class="p-4 border border-slate-700 text-center">เลขที่</th>
+            <th rowspan="2" class="p-4 border border-slate-700 text-center">รายชื่อนักเรียน</th>
+            <th rowspan="2" class="p-4 border border-slate-700 text-center text-rose-300">ชื่อเล่น</th>
+    `;
+
+    tempColsPre.forEach(c => headHtml += `<th class="p-2 border border-slate-700 bg-emerald-700 text-center">${c.title}</th>`);
+    headHtml += `<th class="p-2 border border-slate-700 bg-amber-600 text-center">กลางภาค</th>`;
+    tempColsPost.forEach(c => headHtml += `<th class="p-2 border border-slate-700 bg-emerald-700 text-center">${c.title}</th>`);
+    headHtml += `<th class="p-2 border border-slate-700 bg-rose-600 text-center">ปลายภาค</th>`;
+    headHtml += `<th rowspan="2" class="p-4 border border-slate-700 bg-indigo-700 text-center w-20">รวม</th>`;
+    headHtml += `<th rowspan="2" class="p-4 border border-slate-700 bg-indigo-900 text-center w-16">เกรด</th></tr>`;
+
+    headHtml += `<tr class="bg-slate-700 text-emerald-400 text-[10px]">`;
+    tempColsPre.forEach(c => headHtml += `<td class="p-1 border border-slate-600 text-center">(${c.max})</td>`);
+    headHtml += `<td class="p-1 border border-slate-600 text-center text-amber-300 font-bold">(${midScoreMax})</td>`;
+    tempColsPost.forEach(c => headHtml += `<td class="p-1 border border-slate-600 text-center">(${c.max})</td>`);
+    headHtml += `<td class="p-1 border border-slate-600 text-center text-rose-300 font-bold">(${finalScoreMax})</td></tr>`;
+
+    document.getElementById('sc-preview-head').innerHTML = headHtml;
+
+    // 2. ส่วนเนื้อหาตาราง (ปรับเลขที่อัตโนมัติ)
+    let bodyHtml = roomStudents.map((s, index) => {
+        // ใช้ s.no ถ้ามีในฐานข้อมูล ถ้าไม่มีให้ใช้ index + 1 เป็นเลขที่อัตโนมัติ
+        const studentNo = s.no || (index + 1);
+        // ดึงข้อมูลก่อนกลางภาค
+    tempColsPre = [];
+    const preTitles = document.querySelectorAll('#pre-task-container .task-title');
+    const preMaxs = document.querySelectorAll('#pre-task-container .task-max');
+    preTitles.forEach((el, i) => {
+        if(el.value.trim()) tempColsPre.push({ title: el.value, max: parseInt(preMaxs[i].value) || 0 });
+    });
+
+    // ดึงข้อมูลหลังกลางภาค
+    tempColsPost = [];
+    const postTitles = document.querySelectorAll('#post-task-container .task-title');
+    const postMaxs = document.querySelectorAll('#post-task-container .task-max');
+    postTitles.forEach((el, i) => {
+        if(el.value.trim()) tempColsPost.push({ title: el.value, max: parseInt(postMaxs[i].value) || 0 });
+    });
+
+        let rows = `
+            <tr id="row-std-${index}" class="hover:bg-slate-50 transition-all border-b border-slate-100">
+                <td class="p-3 text-center font-bold text-slate-500 bg-slate-50/50">${studentNo}</td>
+                <td class="p-3 font-bold text-slate-800">${s.name}</td>
+                <td class="p-3 text-rose-500 italic font-medium">${s.nickname || '-'}</td>
+        `;
+
+        // สร้างช่อง Input สำหรับคะแนน พร้อม Event คำนวณอัตโนมัติ
+        const totalInputCount = tempColsPre.length + 1 + tempColsPost.length + 1;
+        for(let i=0; i < totalInputCount; i++) {
+            rows += `
+                <td class="p-1 border border-slate-100">
+                    <input type="number" 
+                        oninput="calculateRowScore(${index})" 
+                        class="score-input-field w-full p-2 text-center bg-transparent focus:bg-amber-50 outline-none font-bold text-indigo-600" 
+                        value="0" min="0">
+                </td>`;
+        }
+
+        rows += `<td id="total-${index}" class="p-3 text-center font-black text-emerald-600 bg-emerald-50/30 text-xl">0</td>`;
+        rows += `<td id="grade-${index}" class="p-3 text-center font-black text-slate-700 bg-slate-100 text-xl">-</td></tr>`;
+        return rows;
+    }).join('');
+
+    document.getElementById('sc-preview-body').innerHTML = bodyHtml;
+    document.getElementById('score-preview-container').classList.remove('hidden');
+}
+
+// 🧮 ฟังก์ชันคำนวณคะแนนและเกรดอัตโนมัติรายบรรทัด
+function calculateRowScore(rowIndex) {
+    const row = document.getElementById(`row-std-${rowIndex}`);
+    const inputs = row.getElementsByClassName('score-input-field');
+    let sum = 0;
+
+    for (let input of inputs) {
+        sum += parseFloat(input.value) || 0;
+    }
+
+    // แสดงผลรวม
+    document.getElementById(`total-${rowIndex}`).innerText = sum;
+
+    // คำนวณเกรดอัตโนมัติ (อิงตามเกณฑ์มาตรฐาน)
+    let grade = "-";
+    if (sum >= 80) grade = "4";
+    else if (sum >= 75) grade = "3.5";
+    else if (sum >= 70) grade = "3";
+    else if (sum >= 65) grade = "2.5";
+    else if (sum >= 60) grade = "2";
+    else if (sum >= 55) grade = "1.5";
+    else if (sum >= 50) grade = "1";
+    else grade = "0";
+
+    const gradeCell = document.getElementById(`grade-${rowIndex}`);
+    gradeCell.innerText = grade;
+    
+    // ปรับสีเกรด
+    if(grade === "4" || grade === "3.5") gradeCell.className = "p-3 text-center font-black text-emerald-600 bg-slate-100 text-xl";
+    else if(grade === "0") gradeCell.className = "p-3 text-center font-black text-rose-600 bg-slate-100 text-xl";
+    else gradeCell.className = "p-3 text-center font-black text-slate-700 bg-slate-100 text-xl";
+}
+
+function exportTemplateToExcel() {
     const grade = document.getElementById('sc-grade').value;
     const sub = document.getElementById('sc-sub').value;
+    const roomStudents = students.filter(s => s.grade === grade);
+
+    if (roomStudents.length === 0) return Swal.fire('ไม่พบข้อมูล', 'กรุณาเลือกชั้นเรียนก่อนดาวน์โหลด', 'warning');
+
+    // 1. สร้างหัวตาราง (Header)
+    let headers = ["เลขที่", "ชื่อ-นามสกุล", "ชื่อเล่น"];
     
-    // รายการ ID ที่ต้องการปลดล็อค
-    const inputs = ['sc-sheet-url', 'sc-sheet-name', 'sc-row-start'];
-    const btn = document.getElementById('sc-btn-sync');
+    // เพิ่มหัวข้อจากที่ตั้งค่าไว้
+    tempColsPre.forEach(c => headers.push(`${c.title} (${c.max})` || "คะแนนเก็บ"));
+    headers.push("กลางภาค");
+    tempColsPost.forEach(c => headers.push(`${c.title} (${c.max})` || "คะแนนเก็บ"));
+    headers.push("ปลายภาค");
 
-    if (grade && sub) {
-        // --- กรณีเลือกครบแล้ว: ปลดล็อค ---
-        inputs.forEach(id => {
-            const el = document.getElementById(id);
-            el.disabled = false;
-            el.classList.remove('bg-slate-200', 'cursor-not-allowed', 'opacity-60', 'text-slate-400');
-            el.classList.add('bg-white', 'text-slate-700');
+    // 2. เตรียมข้อมูลนักเรียน (Rows)
+    const data = roomStudents.map((s, index) => {
+        let rowData = [
+            s.no || (index + 1), // เลขที่อัตโนมัติ
+            s.name,
+            s.nickname || "-"
+        ];
+        // เติมช่องว่างสำหรับกรอกคะแนน (ใส่ 0 ไว้เป็นตัวอย่าง)
+        const scoreColsCount = tempColsPre.length + 1 + tempColsPost.length + 1;
+        for(let i=0; i < scoreColsCount; i++) rowData.push(0);
+        
+        return rowData;
+    });
+
+    // 3. เริ่มกระบวนการสร้างไฟล์
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+
+    // ปรับความกว้างคอลัมน์อัตโนมัติ
+    ws['!cols'] = [{ wch: 8 }, { wch: 30 }, { wch: 15 }];
+
+    XLSX.utils.book_append_sheet(wb, ws, "Template_คะแนน");
+
+    // 4. สั่งดาวน์โหลดไฟล์
+    const fileName = `Template_คะแนน_${sub}_ชั้น_${grade}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+    Swal.fire({
+        icon: 'success',
+        title: 'ดาวน์โหลดสำเร็จ',
+        text: `ไฟล์ ${fileName} พร้อมใช้งานแล้ว`,
+        timer: 2000
+    });
+}
+
+function importScoreFromExcel(input) {
+    const file = input.files[0];
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+        // เริ่มอ่านข้อมูลตั้งแต่บรรทัดที่ 2 (index 1) เป็นต้นไป
+        const scoreRows = jsonData.slice(1); 
+        const previewRows = document.getElementById('sc-preview-body').getElementsByTagName('tr');
+
+        scoreRows.forEach((row, rowIndex) => {
+            if (previewRows[rowIndex]) {
+                const inputs = previewRows[rowIndex].getElementsByClassName('score-input-field');
+                // ข้าม 3 คอลัมน์แรก (เลขที่, ชื่อ, ชื่อเล่น) ในไฟล์ Excel
+                let excelColIndex = 3; 
+                
+                for (let i = 0; i < inputs.length; i++) {
+                    if (row[excelColIndex] !== undefined) {
+                        inputs[i].value = row[excelColIndex];
+                    }
+                    excelColIndex++;
+                }
+                // สั่งคำนวณคะแนนรวมและเกรดใหม่ทันที
+                calculateRowScore(rowIndex);
+            }
         });
         
-        // ปรับแต่งเฉพาะของ URL Input
-        document.getElementById('sc-sheet-url').placeholder = "✅ วางลิงก์ Google Sheets ได้เลย...";
-
-        // ปลดล็อคปุ่ม
-        btn.disabled = false;
-        btn.classList.remove('bg-slate-300', 'cursor-not-allowed');
-        btn.classList.add('bg-violet-600', 'hover:bg-violet-700', 'shadow-xl');
-
-        // แสดง Config Area (หากซ่อนอยู่)
-        document.getElementById('sheets-config-area').classList.remove('hidden');
-        
-    } else {
-        // --- กรณีเลือกไม่ครบ: ล็อคกลับ ---
-        inputs.forEach(id => {
-            const el = document.getElementById(id);
-            el.disabled = true;
-            el.classList.add('bg-slate-200', 'cursor-not-allowed', 'opacity-60', 'text-slate-400');
-            el.classList.remove('bg-white');
-        });
-        
-        btn.disabled = true;
-        btn.classList.add('bg-slate-300', 'cursor-not-allowed');
-        btn.classList.remove('bg-violet-600', 'hover:bg-violet-700', 'shadow-xl');
-    }
+        Swal.fire('สำเร็จ', 'นำเข้าคะแนนเรียบร้อยแล้ว', 'success');
+        input.value = ''; // Reset input
+    };
+    reader.readAsArrayBuffer(file);
 }
 
 // ฟังก์ชันตรวจจับการวางลิงก์แล้วรันอัตโนมัติ
@@ -1090,6 +1713,7 @@ async function autoSyncFromUrl() {
         }, 500);
     }
 }
+
 
 // 1. ฟังก์ชันจัดการเมื่อมีการวาง URL
 // 1. ฟังก์ชันเมื่อวางลิงก์
@@ -1277,31 +1901,45 @@ async function syncScoreFromSheets() {
 // ฟังก์ชันบันทึกค่าลง Firebase
 async function saveAllScoresToDB() {
     const grade = document.getElementById('sc-grade').value;
-    const subject = document.getElementById('sc-sub').value;
-    const rows = Array.from(document.querySelectorAll('#sc-preview-body tr'));
+    const sub = document.getElementById('sc-sub').value;
+    if (!grade || !sub) return;
 
-    Swal.fire({ title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading() });
+    const midMax = document.getElementById('mid-max').value || 0;
+    const finalMax = document.getElementById('final-max').value || 0;
 
-    try {
-        const updates = {};
-        rows.forEach(row => {
-            const cells = row.querySelectorAll('td');
-            if (cells.length < 2) return;
-            const name = cells[1].innerText.trim().replace(/\s+/g, '');
-            const student = students.find(s => s.name.replace(/\s+/g, '') === name && s.grade === grade);
+    // สร้าง Metadata เพื่อบอกหน้าติดตามงานว่ามีคอลัมน์อะไรบ้าง
+    let taskOrder = [];
+    tempColsPre.forEach(c => taskOrder.push(`ก่อนกลางภาค|${c.title} (${c.max})`));
+    taskOrder.push(`กลางภาค|คะแนนสอบ (${midMax})`);
+    tempColsPost.forEach(c => taskOrder.push(`หลังกลางภาค|${c.title} (${c.max})`));
+    taskOrder.push(`ปลายภาค|คะแนนสอบ (${finalMax})`);
 
-            if (student) {
-                scoreTasks.forEach((t, idx) => {
-                    // ดึงค่าจากตาราง Preview ตรงๆ (คอลัมน์ที่ 4 เป็นต้นไป)
-                    const val = cells[idx + 3].innerText.trim();
-                    updates[`scores/${student.id}/${subject}/${t.fullName}`] = val;
-                });
-            }
-        });
-        await db.ref().update(updates);
-        Swal.fire('สำเร็จ', 'บันทึกและคำนวณคะแนนใหม่เรียบร้อย', 'success');
-    } catch (e) { Swal.fire('Error', e.message, 'error'); }
+    const updates = {};
+    const roomStudents = students.filter(s => s.grade === grade);
+    const rows = document.querySelectorAll('#sc-preview-body tr');
+
+    rows.forEach((row, idx) => {
+        const student = roomStudents[idx];
+        if (!student) return;
+        const inputs = row.querySelectorAll('.score-input-field');
+        let studentScores = {};
+        let i = 0;
+
+        // แมปตามลำดับ taskOrder เป๊ะๆ
+        tempColsPre.forEach(c => { studentScores[`ก่อนกลางภาค|${c.title} (${c.max})`] = inputs[i++].value; });
+        studentScores[`กลางภาค|คะแนนสอบ (${midMax})`] = inputs[i++].value;
+        tempColsPost.forEach(c => { studentScores[`หลังกลางภาค|${c.title} (${c.max})`] = inputs[i++].value; });
+        studentScores[`ปลายภาค|คะแนนสอบ (${finalMax})`] = inputs[i++].value;
+
+        // บันทึกลง Path 'scores'
+        updates[`scores/${student.id || student.name}/${sub}`] = studentScores;
+    });
+
+    await db.ref().update(updates);
+    await db.ref(`scores_meta/${sub}/taskOrder`).set(taskOrder); // เก็บโครงสร้างไว้
+    Swal.fire('สำเร็จ', 'บันทึกเรียบร้อย', 'success');
 }
+
 
 // --- 4. ฟังก์ชันหน้าติดตามงาน (โชว์แยก สมุด/ชีท) ---
 async function loadTrackingReport() {
@@ -1309,78 +1947,112 @@ async function loadTrackingReport() {
     const gr = document.getElementById('tr-grade').value;
     if (!sub || !gr) return;
 
+    // ดึงข้อมูลจาก Firebase
     const sSnap = await db.ref('scores').once('value'); 
     const mSnap = await db.ref(`scores_meta/${sub}/taskOrder`).once('value');
     
     const allS = sSnap.val() || {};
-    const taskOrder = mSnap.val() || []; 
+    const taskOrder = mSnap.val() || []; // นี่คือ Array หัวข้อที่เราบันทึกไว้
     const room = students.filter(s => s.grade === gr); 
 
-    // 1. กรองเฉพาะหัวข้อที่มีคำว่า "คะแนน" เท่านั้น
-    let filteredTasks = taskOrder.filter(k => k.includes("คะแนน"));
-
+    // 1. จัดกลุ่มงาน (Grouping) ตาม Prefix ก่อนเครื่องหมาย |
     let tasksByG = {}; 
-    filteredTasks.forEach(k => {
-        const parts = k.split('|');
-        const g = parts[0]?.trim() || "ทั่วไป";
-        const i = parts[1]?.trim() || "งาน";
-        if (!tasksByG[g]) tasksByG[g] = [];
-        tasksByG[g].push(i);
+    taskOrder.forEach(fullKey => {
+        const parts = fullKey.split('|');
+        const groupName = parts[0] || "ทั่วไป";
+        if (!tasksByG[groupName]) tasksByG[groupName] = [];
+        tasksByG[groupName].push(fullKey); 
     });
 
-    // 2. สร้างหัวตาราง (ล็อคคะแนนรวมไว้เหมือนเดิม)
-    let h1 = `<th rowspan="2" class="bg-slate-900 text-white p-4 sticky left-0 z-30">เลขที่</th>
-              <th rowspan="2" class="bg-slate-900 text-white p-4 sticky left-16 z-30 text-left">ชื่อ-นามสกุล</th>
-              <th rowspan="2" class="bg-slate-900 text-rose-300 p-4 sticky left-[120px] z-30">ชื่อเล่น</th>
-              <th rowspan="2" class="bg-emerald-600 text-white p-4 sticky left-[175px] z-30 font-bold text-center border-l border-emerald-500">คะแนนรวม</th>`;
-    
-    let h2 = "";
-    Object.keys(tasksByG).forEach(g => {
-        h1 += `<th colspan="${tasksByG[g].length}" class="bg-indigo-600 text-white p-2 border-l border-indigo-400 font-bold text-center text-xs">${g}</th>`;
-        tasksByG[g].forEach(i => {
-            h2 += `<th class="bg-slate-800 text-white p-2 border-l border-slate-700 text-[10px] font-medium text-center">${i}</th>`;
-        });
-    });
-    
-    document.getElementById('tr-head').innerHTML = `<tr>${h1}</tr><tr>${h2}</tr>`;
+    // 2. เรียงลำดับกลุ่มให้ถูกต้อง
+    const order = ["ก่อนกลางภาค", "กลางภาค", "หลังกลางภาค", "ปลายภาค"];
+    const sortedGroups = Object.keys(tasksByG).sort((a, b) => order.indexOf(a) - order.indexOf(b));
 
-    // 3. วาดเนื้อหาตาราง
+    // 3. สร้างหัวตาราง (H1) - แสดงเฉพาะชื่อกลุ่มหลัก
+    let h1 = `<tr class="bg-white text-black text-[11px] uppercase tracking-widest">
+                <th class="p-4 sticky left-0 z-50 bg-white border-r border-slate-200 rounded-tl-3xl shadow-md text-black">เลขที่</th>
+                <th class="p-4 sticky left-12 z-50 bg-white border-r border-slate-200 text-left min-w-[180px] shadow-md text-black">ชื่อ-นามสกุล</th>
+                <th class="p-4 sticky left-[228px] z-50 bg-white border-r border-slate-200 font-bold shadow-md text-black">ชื่อเล่น</th>`;
+
+    sortedGroups.forEach(g => {
+        let display = g;
+        let color = "bg-slate-700";
+        if (g.includes("ก่อนกลางภาค")) { display = "📝 คะแนนเก็บกลางภาค"; color = "bg-indigo-600"; }
+        else if (g === "กลางภาค") { display = "🎯 คะแนนกลางภาค"; color = "bg-orange-600"; }
+        else if (g.includes("หลังกลางภาค")) { display = "📝 คะแนนเก็บปลายภาค"; color = "bg-purple-600"; }
+        else if (g === "ปลายภาค") { display = "🎯 คะแนนปลายภาค"; color = "bg-rose-600"; }
+
+        h1 += `<th colspan="${tasksByG[g].length}" class="${color} p-4 border-l border-white/20 font-extrabold text-white text-center">${display}</th>`;
+    });
+
+    h1 += `<th class="bg-emerald-500 text-black p-4 sticky right-16 z-40 font-black border-l border-emerald-600">รวม</th>
+           <th class="bg-slate-200 text-black p-4 sticky right-0 z-40 font-black border-l border-slate-300 rounded-tr-3xl">เกรด</th></tr>`;
+    
+    document.getElementById('tr-head').innerHTML = h1;
+
+    // 4. สร้างเนื้อหาตารางนักเรียน (เพิ่มเส้นตารางให้ชัดเจน)
     document.getElementById('tr-body').innerHTML = room.map((s, idx) => {
         let cells = "";
-        let totalScore = 0;
-        const myData = allS[s.id]?.[sub] || {};
+        let total = 0;
+        const studentKey = s.id || s.name;
+        const myData = allS[studentKey]?.[sub] || {};
 
-        Object.keys(tasksByG).forEach(g => {
-            tasksByG[g].forEach(i => {
-                const k = `${g}|${i}`;
-                const val = (myData[k] || "").toString().trim();
-                
-                let display = "";
-                let cellClass = "p-3 text-center border-l border-slate-100";
+        sortedGroups.forEach(g => {
+            tasksByG[g].forEach(fullKey => {
+                const val = (myData[fullKey] || "").toString().trim();
+                let display = "-";
+                // เพิ่มเส้นขอบ border-l และ border-slate-200 ในทุกเซลล์คะแนน
+                let cellClass = "p-3 text-center border-l border-slate-200 text-black";
 
-                // แสดงเฉพาะตัวเลขคะแนน
-                if (!isNaN(val) && val !== "") {
+                if (val !== "" && !isNaN(val)) {
                     const scoreNum = parseFloat(val);
-                    totalScore += scoreNum;
-                    display = `<span class="text-indigo-600 font-bold text-sm">${val}</span>`;
+                    total += scoreNum;
+                    display = `<span class="font-bold text-sm">${val}</span>`;
                 } else {
-                    display = "-"; // ถ้าไม่มีคะแนนให้ใส่ขีดไว้
-                    cellClass += " text-slate-300";
+                    display = `<div class="w-2 h-2 bg-rose-400 rounded-full mx-auto opacity-30"></div>`;
+                    cellClass += " bg-rose-50/10";
                 }
-                
                 cells += `<td class="${cellClass}">${display}</td>`;
             });
         });
 
-        return `<tr class="hover:bg-slate-50 border-b border-slate-100 transition-colors">
-            <td class="p-3 text-center bg-white sticky left-0 z-10 font-bold text-slate-400 text-xs">${idx+1}</td>
-            <td class="p-3 bg-white sticky left-16 z-10 font-bold text-slate-700 text-sm text-left">${s.name}</td>
-            <td class="p-3 bg-rose-50/10 sticky left-[120px] z-10 text-rose-500 italic text-sm font-bold border-r">${s.nickname || '-'}</td>
-            <td class="p-3 text-center bg-emerald-50 sticky left-[175px] z-20 font-black text-emerald-700 text-lg border-r border-emerald-200">${totalScore}</td>
+        const gradeResult = calculateGrade(total);
+
+        return `<tr class="hover:bg-slate-50 border-b border-slate-300 transition-colors">
+            <td class="p-3 text-center bg-white sticky left-0 z-10 text-black font-bold border-r border-slate-300 shadow-sm">${idx + 1}</td>
+            <td class="p-3 bg-white sticky left-12 z-10 text-black font-bold text-left border-r border-slate-300 shadow-sm">${s.name || '-'}</td>
+            <td class="p-3 bg-white sticky left-[228px] z-10 text-rose-600 italic font-bold border-r border-slate-300 shadow-sm">${s.nickname || '-'}</td>
+            
             ${cells}
+
+            <td class="p-3 text-center bg-emerald-100 sticky right-16 z-20 font-black text-black border-l border-slate-300 shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">
+                ${total}
+            </td>
+            <td class="p-3 text-center bg-slate-200 sticky right-0 z-20 font-black text-black border-l border-slate-300 shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">
+                ${gradeResult}
+            </td>
         </tr>`;
     }).join('');
 }
+    
+// ฟังก์ชันคำนวณเกรดมาตรฐาน (0-100 คะแนน)
+function calculateGrade(score) {
+    if (score === null || score === undefined || score === "") return "-";
+    
+    const s = parseFloat(score);
+    if (isNaN(s)) return "-";
+
+    if (s >= 80) return "4";
+    if (s >= 75) return "3.5";
+    if (s >= 70) return "3";
+    if (s >= 65) return "2.5";
+    if (s >= 60) return "2";
+    if (s >= 55) return "1.5";
+    if (s >= 50) return "1";
+    return "0";
+}
+
+
         // --- 6. ADVANCED STATS ---
         async function generateStatsReport() {
     const gr = document.getElementById('st-grade').value;
@@ -1631,19 +2303,55 @@ async function updateSingleStatus(sessionId, studentId, newStatus) {
 
         // --- 8. STUDENT LOGIC ---
         function handleStudentLogin() {
-            const id = document.getElementById('std-login-id').value.trim(); const s = students.find(x => x.id === id);
-            if(!s) return Swal.fire('ไม่พบข้อมูลรหัสนักเรียน');
-            currentSid = id; showPage('std-dashboard');
-            document.getElementById('std-name-txt').innerText = s.name; document.getElementById('std-grade-txt').innerText = `ชั้นเรียน: ${s.grade}`;
-            document.getElementById('std-img').src = s.photo || `https://api.dicebear.com/7.x/initials/svg?seed=${id}`;
-            const g = document.getElementById('std-subject-list'); g.innerHTML = "";
-            Object.entries(s.subjects || {}).forEach(([n, v]) => { if(v) {
-                const b = document.createElement('button'); b.className = "glass p-6 text-left border-l-8 border-indigo-600 font-bold hover:bg-slate-50 transition-all";
-                b.innerHTML = `<span class="text-[10px] block text-slate-400 uppercase">รายวิชา</span>${n}`;
-                b.onclick = () => { currentSub = n; showPage('std-subject-menu'); document.getElementById('std-menu-sub-title').innerText = n; };
-                g.appendChild(b);
-            }});
+    const id = document.getElementById('std-login-id').value.trim(); 
+    const s = students.find(x => x.id === id);
+    
+    if(!s) return Swal.fire('ไม่พบข้อมูล', 'กรุณาตรวจสอบรหัสนักเรียนอีกครั้ง', 'error');
+
+    window.currentStudent = s;
+    currentSid = id; 
+    showPage('std-dashboard');
+    
+    // อัปเดตข้อมูลส่วนตัว
+    document.getElementById('std-name-txt').innerText = s.name; 
+    document.getElementById('std-grade-txt').innerText = `ห้อง ${s.grade}`;
+    document.getElementById('std-img').src = s.photo || `https://api.dicebear.com/7.x/initials/svg?seed=${id}`;
+    
+    // แสดงรายการวิชาแบบ Grid Card
+    const g = document.getElementById('std-subject-list'); 
+    g.innerHTML = "";
+    
+    // กำหนดสีประจำวิชาแบบสุ่มหรือตามลำดับเพื่อให้ดูมีสัน
+    const colors = ['border-indigo-500', 'border-emerald-500', 'border-rose-500', 'border-amber-500', 'border-purple-500'];
+    let colorIdx = 0;
+
+    Object.entries(s.subjects || {}).forEach(([n, v]) => { 
+        if(v) {
+            const color = colors[colorIdx % colors.length];
+            const btn = document.createElement('button');
+            
+            // ปรับ Class ให้เป็น Card ที่สวยงาม
+            btn.className = `group relative overflow-hidden bg-white p-8 text-left border-l-[12px] ${color} rounded-3xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300`;
+            
+            btn.innerHTML = `
+                <div class="relative z-10">
+                    <span class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">Subject</span>
+                    <h3 class="text-2xl font-black text-slate-800 tracking-tighter group-hover:text-indigo-600 transition-colors">${n}</h3>
+                </div>
+                <div class="absolute right-[-10px] bottom-[-10px] text-6xl opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">📚</div>
+            `;
+            
+            btn.onclick = () => { 
+                currentSub = n; 
+                showPage('std-subject-menu'); 
+                document.getElementById('std-menu-sub-title').innerText = n; 
+            };
+            
+            g.appendChild(btn);
+            colorIdx++;
         }
+    });
+}
 
 function selectSubject(subjectName) {
     currentSub = subjectName; // เมื่อกดปุ่มวิชา จะบันทึกชื่อวิชาลงในตัวแปรทันที
@@ -1678,12 +2386,16 @@ async function showStdScores() {
         filteredTasks.forEach(fullTaskName => {
             const scoreValue = scs[fullTaskName];
             const val = (!isNaN(scoreValue) && scoreValue !== "") ? parseFloat(scoreValue) : 0;
+            
+            // --- แก้ไขการแยกชื่อตรงนี้ ---
             const parts = fullTaskName.split('|');
-            const groupName = parts[0] || ""; // เช่น EQU601
+            const groupName = parts[0] || ""; // คือ "ก่อนกลางภาค", "หลังกลางภาค" ฯลฯ
+            // ชื่อหัวข้อจริงๆ คือตัวที่ 2 (index 1) เช่น "งานที่ 1 (10)"
+            const taskTitle = parts[1] || fullTaskName; 
 
-            if (fullTaskName.includes("กลางภาค")) {
+            if (fullTaskName.includes("กลางภาค") && !fullTaskName.includes("ก่อน") && !fullTaskName.includes("หลัง")) {
                 midtermScore = scoreValue || 0;
-            } else if (fullTaskName.includes("ปลายภาค")) {
+            } else if (fullTaskName.includes("ปลายภาค") && !fullTaskName.includes("หลัง")) {
                 finalScore = scoreValue || 0;
             } else {
                 totalAccumulated += val;
@@ -1693,14 +2405,14 @@ async function showStdScores() {
             const cardBg = isMissing ? "bg-rose-50 border-rose-200" : "bg-white border-slate-200";
             const scoreColor = isMissing ? "text-rose-600" : "text-indigo-700";
 
-            // --- แก้ไขจุดนี้: โชว์แค่ชื่อรหัสหน่วย (EQU601) ตัวใหญ่ และลบตัวเลขสีดำซ้ำออก ---
+            // --- ส่วนแสดงผล Card: เปลี่ยนจาก groupName เป็น taskTitle ---
             detailItemsHtml += `
                 <div class="p-8 border-2 rounded-[3.5rem] ${cardBg} transition-all shadow-sm flex flex-col justify-between min-h-[200px]">
                     <div>
-                        <h4 class="text-5xl font-black text-slate-800 leading-tight mb-2 tracking-tighter">
-                            ${groupName}
+                        <h4 class="text-4xl font-black text-slate-800 leading-tight mb-2 tracking-tighter">
+                            ${taskTitle}
                         </h4>
-                        <p class="text-sm font-bold text-indigo-400 uppercase tracking-widest">หน่วยการเรียนรู้</p>
+                        <p class="text-sm font-bold text-indigo-400 uppercase tracking-widest">${groupName}</p>
                     </div>
                     
                     <div class="flex items-baseline gap-2 mt-4">
@@ -1766,25 +2478,81 @@ async function showStdScores() {
 // 📋 ปุ่ม PENDING
 async function showStdPending() {
     if(!currentSub) return;
-    const sS = await db.ref('scores').once('value');
-    const allS = sS.val() || {};
-    let allT = new Set();
     
-    // วนลูปหาว่าในวิชานี้ "เพื่อนคนอื่น" มีงานชื่ออะไรบ้าง (เพื่อหาชื่อหัวข้องานทั้งหมด)
-    Object.values(allS).forEach(u => {
-        if (u[currentSub]) Object.keys(u[currentSub]).forEach(t => allT.add(t));
-    });
+    try {
+        // 1. ดึงข้อมูลคะแนนของนักเรียน และ รายการงานทั้งหมดจาก Meta
+        const [scoreSnap, metaSnap] = await Promise.all([
+            db.ref(`scores/${currentSid}/${currentSub}`).once('value'),
+            db.ref(`scores_meta/${currentSub}/taskOrder`).once('value')
+        ]);
 
-    const myS = allS[currentSid]?.[currentSub] || {};
-    const miss = Array.from(allT).filter(t => !myS[t]);
+        const myScores = scoreSnap.val() || {};
+        const allTasks = metaSnap.val() || []; // รายการงานทั้งหมดที่ครูบันทึกไว้
+        
+        // 2. กรองเฉพาะงานที่ "ไม่มีคะแนน" หรือ "ไม่ได้ส่ง"
+        const missingTasks = allTasks.filter(taskName => {
+            const score = myScores[taskName];
+            // งานค้างคือ: ไม่มีข้อมูลใน DB หรือ ค่าเป็นว่าง หรือ พิมพ์ว่า "ไม่ส่ง"
+            return score === undefined || score === "" || score === "ไม่ส่ง" || score === null;
+        });
 
-    const h = miss.map(m => `
-        <div class="p-5 bg-rose-50 border-2 border-rose-100 rounded-2xl text-rose-600 font-bold text-lg mb-2 flex items-center">
-            <span class="mr-2">❌</span> ค้างส่ง: ${m}
-        </div>
-    `).join('') || '<div class="text-emerald-500 font-black text-2xl text-center py-10">🎉 คุณส่งงานครบทุกชิ้นแล้ว!</div>';
-    
-    renderContent("📋 รายการงานค้าง", "#f43f5e", h);
+        // 3. สร้าง HTML สำหรับแสดงผล
+        let htmlContent = "";
+
+        if (missingTasks.length > 0) {
+            const listHtml = missingTasks.map(task => {
+                const parts = task.split('|');
+                const group = parts[0] || "ทั่วไป";
+                const title = parts[1] || task;
+
+                return `
+                    <div class="flex items-center justify-between p-6 bg-white border-2 border-rose-100 rounded-3xl shadow-sm mb-4 group hover:border-rose-300 transition-all">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600 text-2xl group-hover:scale-110 transition-transform">
+                                📋
+                            </div>
+                            <div>
+                                <h4 class="text-xl font-black text-slate-800 tracking-tighter">${title}</h4>
+                                <p class="text-xs font-bold text-rose-400 uppercase tracking-widest">${group}</p>
+                            </div>
+                        </div>
+                        <div class="px-4 py-2 bg-rose-500 text-white text-xs font-black rounded-full uppercase tracking-tighter">
+                            ยังไม่ส่ง
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            htmlContent = `
+                <div class="max-w-4xl mx-auto px-4">
+                    <div class="mb-10 text-center">
+                        <p class="text-rose-500 font-black text-xl mb-2 tracking-tighter">Pending Tasks</p>
+                        <h2 class="text-5xl font-black text-slate-900 tracking-tighter">รายการงานค้าง</h2>
+                    </div>
+                    <div class="flex flex-col">
+                        ${listHtml}
+                    </div>
+                </div>
+            `;
+        } else {
+            // กรณีส่งครบแล้ว
+            htmlContent = `
+                <div class="flex flex-col items-center justify-center py-20">
+                    <div class="w-32 h-32 bg-emerald-100 rounded-full flex items-center justify-center text-6xl mb-6 animate-bounce">
+                        🎉
+                    </div>
+                    <h2 class="text-4xl font-black text-slate-900 tracking-tighter mb-2">ยอดเยี่ยมมาก!</h2>
+                    <p class="text-emerald-500 font-bold text-xl uppercase tracking-widest">คุณส่งงานครบทุกชิ้นแล้ว</p>
+                </div>
+            `;
+        }
+        
+        renderContent("📋 รายการงานค้าง", "#f43f5e", htmlContent);
+
+    } catch (error) {
+        console.error(error);
+        Swal.fire('Error', 'ไม่สามารถดึงข้อมูลงานค้างได้', 'error');
+    }
 }
 
 // ⚡ ปุ่ม DO NOW
@@ -2876,27 +3644,7 @@ async function processStudentScan(scannedText) {
             return sCode === cleanCode && sGrade === grade.trim();
         });
 
-        // 4. กรณีไม่พบข้อมูล (ต้องแจ้งเตือนตรงนี้)
-        if (!std) {
-            console.warn("❌ ไม่พบรหัส:", cleanCode, "ในห้อง:", grade);
-            
-            // ล้างข้อมูลเก่าบนหน้าจอ
-            currentScannedStudent = null;
-            const resCard = document.getElementById('student-result-card');
-            const placeholder = document.getElementById('scan-placeholder');
-            if (resCard) resCard.classList.add('hidden');
-            if (placeholder) placeholder.classList.remove('hidden');
-
-            // แจ้งเตือนสีแดง (ใช้ SweetAlert2)
-            return Swal.fire({
-                icon: 'error',
-                title: 'ไม่พบข้อมูล',
-                html: `รหัส <b>"${cleanCode}"</b> ไม่ได้อยู่ในห้อง <b>${grade}</b>`,
-                confirmButtonColor: '#ef4444',
-                timer: 4000,
-                showConfirmButton: true
-            });
-        }
+        
 
         // 5. กรณีพบข้อมูล (ทำงานตามปกติ)
         if (!std) return;
@@ -3104,6 +3852,526 @@ document.addEventListener('keydown', function(e) {
         }
     }
 });
+
+// 1. ฟังก์ชันเติมรายชื่อชั้นเรียนลงใน Select (เรียกใช้ตอนโหลดหน้า)
+function initializeCopySelects() {
+    const gradeSelect = document.getElementById('copy-grade');
+    
+    // ดึงรายชื่อชั้นเรียนที่ไม่ซ้ำกันจากข้อมูลนักเรียน (students)
+    const uniqueGrades = [...new Set(students.map(s => s.grade))].sort();
+    
+    if (uniqueGrades.length > 0) {
+        gradeSelect.innerHTML = '<option value="">เลือกชั้นเรียน</option>' + 
+            uniqueGrades.map(g => `<option value="${g}">${g}</option>`).join('');
+    }
+}
+
+// 2. ฟังก์ชันอัปเดตรายชื่อวิชา เมื่อเลือกชั้นเรียนแล้ว
+function updateCopySubFilter(selectedGrade) {
+    const subSelect = document.getElementById('copy-sub');
+    subSelect.innerHTML = '<option value="">กำลังโหลดวิชา...</option>';
+
+    if (!selectedGrade) {
+        subSelect.innerHTML = '<option value="">เลือกวิชา</option>';
+        return;
+    }
+
+    // ดึงข้อมูลวิชาที่มีการตั้งค่าไว้แล้วใน Database (score_templates)
+    // หรือดึงจากตัวแปร subjects ที่คุณครูมีอยู่
+    db.ref('score_templates').once('value', (snapshot) => {
+        const templates = snapshot.val() || {};
+        let options = '<option value="">เลือกวิชา</option>';
+        
+        // วนลูปหาว่าวิชาไหนบ้างที่มีการตั้งค่าสำหรับชั้นเรียนนี้
+        Object.keys(templates).forEach(subName => {
+            options += `<option value="${subName}">${subName}</option>`;
+        });
+        
+        subSelect.innerHTML = options;
+    });
+}
+
+// 3. เรียกใช้งานฟังก์ชันเมื่อโหลด Page
+window.addEventListener('load', () => {
+    // รอให้ข้อมูล students โหลดเสร็จก่อนแล้วค่อยเติม Select
+    setTimeout(initializeCopySelects, 1000); 
+});
+
+// ฟังก์ชันเรียกใช้เมื่อเปิดหน้า Admin Exam
+async function initAdminExamPage() {
+    const selectGrade = document.getElementById('select-grade');
+    if (!selectGrade) return;
+
+    // แสดงข้อความระหว่างรอข้อมูล (แบบไม่ใช้ Popup หมุน)
+    selectGrade.innerHTML = '<option value="">⏳ กำลังโหลดชั้นเรียน...</option>';
+
+    try {
+        // ดึงข้อมูลจากฐานข้อมูลนักเรียน
+        const snap = await db.ref('students').once('value');
+        const stdData = snap.val();
+
+        if (!stdData) {
+            selectGrade.innerHTML = '<option value="">❌ ไม่พบข้อมูลนักเรียน</option>';
+            return;
+        }
+
+        window.allStudentData = stdData; // เก็บไว้ใช้กรองวิชา
+
+        // ดึงรายชื่อชั้นเรียน (grade) และตัดตัวที่ซ้ำออก
+        const grades = [...new Set(Object.values(stdData).map(s => s.grade))]
+                        .filter(g => g) // ตัดค่าว่างออก
+                        .sort();        // เรียงลำดับ ป.1, ป.2...
+
+        if (grades.length === 0) {
+            selectGrade.innerHTML = '<option value="">❌ ไม่มีชื่อชั้นเรียนในระบบ</option>';
+        } else {
+            selectGrade.innerHTML = '<option value="">--- เลือกชั้นเรียน ---</option>' + 
+                grades.map(g => `<option value="${g}">${g}</option>`).join('');
+        }
+
+    } catch (error) {
+        console.error(error);
+        selectGrade.innerHTML = '<option value="">❌ โหลดข้อมูลล้มเหลว</option>';
+    }
+}
+
+// เมื่อเลือกชั้นเรียน -> กรองวิชา
+function filterSubjectsByGrade() {
+    const grade = document.getElementById('select-grade').value;
+    const selectSub = document.getElementById('select-subject');
+    const methodOpts = document.getElementById('method-options');
+    
+    if (!grade) {
+        selectSub.disabled = true;
+        methodOpts.classList.add('opacity-50', 'pointer-events-none');
+        return;
+    }
+
+    let subList = new Set();
+    Object.values(window.allStudentData).filter(s => s.grade === grade).forEach(s => {
+        if (s.subjects) Object.keys(s.subjects).forEach(subj => subList.add(subj));
+    });
+
+    selectSub.disabled = false;
+    selectSub.innerHTML = '<option value="">--- เลือกวิชา ---</option>' + 
+        [...subList].sort().map(s => `<option value="${s}">${s}</option>`).join('');
+}
+
+// เมื่อเลือกวิชา -> เปิดให้เลือกวิธีจัดการ
+function showImportMethods() {
+    const sub = document.getElementById('select-subject').value;
+    const methodOpts = document.getElementById('method-options');
+    if (sub) {
+        methodOpts.classList.remove('opacity-50', 'pointer-events-none');
+        currentSub = sub; // เก็บวิชาปัจจุบันเข้าตัวแปรกลาง
+    }
+}
+
+// แสดงช่องวางข้อความ
+function preparePasteMode() {
+    document.getElementById('exam-work-area').classList.remove('hidden');
+    document.getElementById('paste-section').classList.remove('hidden');
+    document.getElementById('main-paste-area').value = "";
+}
+
+// โหลดข้อมูลเดิม (กรณีเลือกจัดการเดิม)
+async function loadExamDataDirect() {
+    if (!currentSub) return;
+    loadExamData(currentSub); // เรียกใช้ฟังก์ชันโหลดที่มีอยู่แล้ว
+}
+
+// ฟังก์ชันวิเคราะห์ข้อความ (Smart Paste)
+function processSmartPaste() {
+    try {
+        const area = document.getElementById('main-paste-area');
+        const text = area.value.trim();
+        
+        if (!text) return Swal.fire('กรุณาวางข้อความก่อน', '', 'warning');
+
+        // แยกข้อสอบ
+        const blocks = text.split(/\n\s*(?:ข้อ\s*)?\d+[\.\)]\s+/).filter(b => b.trim() !== "");
+        let newQuestions = [];
+
+        blocks.forEach((block) => {
+            const parts = block.split(/\s*(?:[ก-งa-dA-D1-4])[\.\)]\s+/);
+            if (parts.length >= 2) {
+                newQuestions.push({
+                    title: parts[0].trim(),
+                    options: parts.slice(1, 5).map(o => o.trim()),
+                    correct: 0, // ค่าเริ่มต้นข้อ 1 ถูก
+                    point: 1
+                });
+            }
+        });
+
+        if (newQuestions.length > 0) {
+            currentQuestions = newQuestions;
+            
+            // --- จุดที่เปลี่ยน: แสดงส่วน Preview ด้านล่าง ---
+            document.getElementById('preview-section').classList.remove('hidden');
+            renderQuestions(); // วาดข้อสอบลงใน #questions-list
+            
+            // เลื่อนหน้าจอลงไปดูตัวอย่าง
+            document.getElementById('preview-section').scrollIntoView({ behavior: 'smooth' });
+
+            Swal.fire({
+                icon: 'success',
+                title: 'วิเคราะห์สำเร็จ',
+                text: `พบ ${newQuestions.length} ข้อ ตรวจสอบและเลือกข้อที่ถูกด้านล่างครับ`,
+                timer: 2000
+            });
+        } else {
+            Swal.fire('วิเคราะห์ล้มเหลว', 'กรุณาตรวจสอบรูปแบบเลขข้อและ ก.ข.ค.ง.', 'error');
+        }
+    } catch (e) {
+        Swal.fire('Error', e.message, 'error');
+    }
+}
+
+// ฟังก์ชันบันทึกข้อสอบ (ฝั่งครู)
+async function saveAllQuestions() {
+    if (!currentSub || currentQuestions.length === 0) {
+        return Swal.fire('ข้อมูลไม่ครบ', 'กรุณาเลือกวิชาและวางข้อสอบก่อนบันทึก', 'warning');
+    }
+
+    try {
+        Swal.fire({ title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading() });
+        
+        // 1. ดึงค่าชั้นเรียนมา (เช่น ป.6/1)
+        let gradeRaw = document.getElementById('select-grade').value;
+
+        // 2. ล้างตัวอักษรต้องห้าม (เปลี่ยน . และ / ให้เป็น _)
+        // ป.6/1 จะกลายเป็น ป_6_1
+        let safeGrade = gradeRaw.replace(/[\.\/]/g, '_');
+        let safeSub = currentSub.replace(/[\.\/]/g, '_');
+
+        // 3. บันทึกลง Path ใหม่ที่ปลอดภัย
+        await db.ref(`exam_data/${safeGrade}/${safeSub}`).set({
+            originalGrade: gradeRaw, // เก็บชื่อเดิมไว้แสดงผลได้
+            questions: currentQuestions,
+            createdAt: new Date().getTime(),
+            status: 'active'
+        });
+
+        Swal.fire('สำเร็จ!', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
+    } catch (e) {
+        // ถ้ายังมี Error จะโชว์บอกตรงนี้
+        Swal.fire('เกิดข้อผิดพลาด', 'Path Error: ' + e.message, 'error');
+    }
+}
+
+
+// --- 2. ฟังก์ชันวาดรายการโจทย์ (แก้ Error: renderQuestions) ---
+function renderQuestions() {
+    const list = document.getElementById('questions-list');
+    if (!list) return;
+
+    if (currentQuestions.length === 0) {
+        list.innerHTML = `
+            <div style="text-align: center; padding: 50px; background: #f8fafc; border: 3px dashed #e2e8f0; border-radius: 30px;">
+                <p style="color: #94a3b8; font-size: 18px; font-weight: bold;">ยังไม่มีข้อสอบในระบบ</p>
+            </div>`;
+        return;
+    }
+
+    list.innerHTML = currentQuestions.map((q, idx) => `
+        <div style="background: white; padding: 25px; border-radius: 25px; border: 1px solid #e2e8f0; margin-bottom: 20px; position: relative;">
+            <div style="position: absolute; left: -10px; top: 20px; color: white; width: 35px; height: 35px; background: #4f46e5; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                ${idx + 1}
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 15px; margin-left: 20px;">
+                <input type="text" value="${q.title || ''}" onchange="updateQ(${idx}, 'title', this.value)" 
+                    placeholder="โจทย์คำถาม..."
+                    style="width: 100%; padding: 12px; border: none; background: #f1f5f9; border-radius: 12px; font-weight: bold;">
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    ${[0, 1, 2, 3].map(optIdx => `
+                        <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: #f8fafc; border-radius: 12px;">
+                            <input type="radio" name="correct-${idx}" ${q.correct == optIdx ? 'checked' : ''} 
+                                onchange="updateQ(${idx}, 'correct', ${optIdx});">
+                            <input type="text" value="${q.options ? q.options[optIdx] : ''}" 
+                                onchange="updateOpt(${idx}, ${optIdx}, this.value)"
+                                style="flex: 1; border: none; background: transparent;">
+                        </div>
+                    `).join('')}
+                </div>
+                <div style="text-align: right;">
+                    <button onclick="deleteQ(${idx})" style="color: #ef4444; font-size: 12px; border: none; background: none; cursor: pointer;">ลบข้อนี้ 🗑️</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// --- 3. ฟังก์ชันเสริมจัดการข้อมูล (ให้ครบชุด) ---
+function updateQ(idx, field, val) { currentQuestions[idx][field] = val; }
+function updateOpt(qIdx, optIdx, val) { 
+    if(!currentQuestions[qIdx].options) currentQuestions[qIdx].options = ["","","",""];
+    currentQuestions[qIdx].options[optIdx] = val; 
+}
+function deleteQ(idx) {
+    currentQuestions.splice(idx, 1);
+    renderQuestions();
+}
+
+// ฟังก์ชันเมื่อนักเรียนกดปุ่ม EXAM
+async function loadStudentExam() {
+    const targetGrade = "ป.6/1"; 
+    const subName = currentSub; // ต้องมั่นใจว่ามีค่าจาก selectSubject แล้ว
+
+    // 1. ตรวจสอบชื่อ Path ก่อน
+    const safeGrade = targetGrade.replace(/[\.\/]/g, '_');
+    const safeSub = subName.replace(/[\.\/]/g, '_');
+
+    Swal.fire({ title: 'กำลังโหลด...', didOpen: () => Swal.showLoading() });
+
+    try {
+        // 2. ดึงข้อมูลทั้งหมดของวิชานี้ (ทั้ง status และ questions)
+        const snap = await db.ref(`exam_data/${safeGrade}/${safeSub}`).once('value');
+        const examData = snap.val();
+
+        if (!examData) {
+            return Swal.fire('ไม่พบข้อมูล', 'วิชานี้ยังไม่มีการลงข้อสอบ', 'info');
+        }
+
+        // 3. ตรวจสอบสถานะ เปิด/ปิด (วางตรงนี้คือตำแหน่งที่ถูกต้อง ✅)
+        if (examData.status === 'closed') {
+            return Swal.fire({
+                title: 'ระบบปิดอยู่',
+                text: 'คุณครูยังไม่เปิดให้ทำข้อสอบในขณะนี้ครับ',
+                icon: 'warning',
+                confirmButtonColor: '#f43f5e'
+            });
+        }
+
+        // 4. ถ้าผ่านเงื่อนไขทั้งหมด ค่อยสั่งวาดข้อสอบ
+        window.currentExamQuestions = examData.questions;
+        Swal.close();
+        renderStudentExamUI(subName, examData.questions);
+
+    } catch (e) {
+        console.error(e);
+        Swal.fire('Error', 'การเชื่อมต่อฐานข้อมูลผิดพลาด', 'error');
+    }
+}
+
+// ฟังก์ชันวาดโจทย์ลงหน้าจอ
+function renderStudentExamUI(subName, questions) {
+    // 1. เรียกใช้ชื่อให้ตรงกับ id="page-exam-page" 
+    // ถ้าระบบ showPage ของครูเติม 'page-' ให้เอง ให้ใส่แค่ 'exam-page'
+    // แต่ถ้ามัน Error อีก ให้ลองใส่ชื่อเต็ม 'page-exam-page' ครับ
+    try {
+        showPage('exam-page'); 
+    } catch(e) {
+        // กันเหนียว: ถ้าเรียกแบบแรกไม่ได้ ให้ลองเรียกชื่อเต็ม
+        showPage('page-exam-page');
+    }
+
+    // 2. ใส่ชื่อวิชา
+    const titleEl = document.getElementById('student-exam-title');
+    if (titleEl) titleEl.innerText = `วิชา: ${subName}`;
+    
+    // 3. วาดข้อสอบลงใน container ที่ครูมี (id="student-questions-container")
+    const container = document.getElementById('student-questions-container');
+    if (container) {
+        window.currentExamQuestions = questions; // เก็บไว้ตรวจคะแนน
+        
+        container.innerHTML = questions.map((q, idx) => `
+            <div class="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100 shadow-sm mb-6">
+                <h4 class="text-xl font-black text-slate-800 mb-6">${idx + 1}. ${q.title}</h4>
+                <div class="grid gap-3">
+                    ${q.options.map((opt, i) => `
+                        <label class="flex items-center gap-4 p-5 bg-white rounded-2xl cursor-pointer hover:bg-emerald-50 border-2 border-transparent has-[:checked]:border-emerald-500 transition-all shadow-sm">
+                            <input type="radio" name="q${idx}" value="${i}" class="w-5 h-5 accent-emerald-500">
+                            <span class="font-bold text-slate-700">${opt}</span>
+                        </label>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    // เลื่อนหน้าจอขึ้นไปบนสุดเพื่อให้เริ่มทำข้อ 1
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function submitExam() {
+    const std = window.currentStudent;
+    if (!std) return Swal.fire('ไม่พบข้อมูล', 'กรุณา Login ใหม่', 'error');
+
+    const questions = window.currentExamQuestions;
+    let score = 0;
+    questions.forEach((q, idx) => {
+        const selected = document.querySelector(`input[name="q${idx}"]:checked`);
+        if (selected && parseInt(selected.value) === parseInt(q.correct)) score++;
+    });
+
+    try {
+        Swal.fire({ title: 'กำลังบันทึกคะแนน...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        const safeGrade = std.grade.replace(/[\.\/]/g, '_');
+        const safeSub = currentSub.replace(/[\.\/]/g, '_');
+
+        // 🚩 เปลี่ยนจาก std.no เป็น std.id เพื่อป้องกัน Error 'undefined'
+        await db.ref(`exam_results/${safeGrade}/${safeSub}/${std.id}`).set({
+            studentId: std.id,
+            name: std.name,
+            nickname: std.nickname || std.name.split(' ')[0], 
+            score: score,
+            total: questions.length,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        });
+
+        await Swal.fire('สำเร็จ!', `คุณได้คะแนน ${score}/${questions.length}`, 'success');
+        showPage('std-subject-menu');
+
+    } catch (e) {
+        Swal.fire('Error', 'บันทึกไม่สำเร็จ: ' + e.message, 'error');
+    }
+}
+
+let isExamOpen = true;
+
+async function toggleExamStatus() {
+    const safeGrade = document.getElementById('select-grade').value.replace(/[\.\/]/g, '_');
+    const safeSub = currentSub.replace(/[\.\/]/g, '_');
+    const btn = document.getElementById('btn-toggle-exam');
+
+    isExamOpen = !isExamOpen;
+
+    try {
+        await db.ref(`exam_data/${safeGrade}/${safeSub}/status`).set(isExamOpen ? 'active' : 'closed');
+        
+        if (isExamOpen) {
+            btn.innerText = "🟢 กำลังเปิดสอบ";
+            btn.className = "bg-emerald-500 text-white px-6 py-3 rounded-2xl font-bold transition-all";
+        } else {
+            btn.innerText = "🔴 ปิดรับคำตอบ";
+            btn.className = "bg-rose-500 text-white px-6 py-3 rounded-2xl font-bold transition-all";
+        }
+        Swal.fire('อัปเดตสถานะ', `เปลี่ยนสถานะเป็น ${isExamOpen ? 'เปิด' : 'ปิด'} เรียบร้อย`, 'success');
+    } catch (e) {
+        Swal.fire('Error', 'ไม่สามารถเปลี่ยนสถานะได้', 'error');
+    }
+}
+
+async function viewScores() {
+    // ดึงค่าจาก Select ของครู
+    const gradeRaw = document.getElementById('select-grade').value;
+    const subRaw = document.getElementById('select-subject').value;
+
+    if (!gradeRaw || !subRaw) {
+        return Swal.fire('ข้อมูลไม่ครบ', 'กรุณาเลือกชั้นเรียนและวิชาที่ต้องการดูคะแนน', 'warning');
+    }
+
+    const safeGrade = gradeRaw.replace(/[\.\/]/g, '_');
+    const safeSub = subRaw.replace(/[\.\/]/g, '_');
+
+    Swal.fire({ title: 'กำลังโหลดคะแนน...', didOpen: () => Swal.showLoading() });
+
+    try {
+        // อ้างอิง Path ให้ตรงกับที่นักเรียนบันทึก
+        const snap = await db.ref(`exam_results/${safeGrade}/${safeSub}`).once('value');
+        const scores = snap.val();
+
+        if (!scores) {
+            return Swal.fire('ไม่พบข้อมูล', 'ยังไม่มีนักเรียนส่งข้อสอบในวิชานี้', 'info');
+        }
+
+        // --- ส่วนการแสดงผลตารางเหมือนเดิมที่คุณครูมี ---
+        console.log("คะแนนที่พบ:", scores);
+        renderScoreTable(scores); // แยกฟังก์ชันออกมาเพื่อความสะอาด
+        
+    } catch (e) {
+        Swal.fire('Error', 'ดึงข้อมูลล้มเหลว: ' + e.message, 'error');
+    }
+}
+
+function renderScoreTable(scores) {
+    const scoreList = Object.values(scores);
+    
+    let tableHTML = `
+        <div class="mt-4 overflow-hidden rounded-2xl border border-slate-100 text-left">
+            <table class="w-full border-collapse">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="p-4 text-xs font-black text-slate-400 uppercase">รหัส</th>
+                        <th class="p-4 text-xs font-black text-slate-400 uppercase">ชื่อเล่น</th>
+                        <th class="p-4 text-xs font-black text-slate-400 uppercase text-center">คะแนน</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    ${scoreList.map(item => `
+                        <tr class="hover:bg-slate-50/50 transition-colors text-sm">
+                            <td class="p-4 text-slate-500 font-bold">${item.studentId}</td>
+                            <td class="p-4 text-slate-800 font-black">${item.nickname}</td>
+                            <td class="p-4 text-center">
+                                <span class="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg font-black">
+                                    ${item.score} / ${item.total}
+                                </span>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    Swal.fire({
+        title: `<span class="text-2xl font-black text-slate-800">📊 ผลการสอบ</span>`,
+        html: tableHTML,
+        width: '550px',
+        showDenyButton: true, // เพิ่มปุ่มที่สอง
+        confirmButtonText: 'รับทราบ',
+        denyButtonText: '🗑️ ล้างคะแนนทั้งหมด', // ปุ่มล้างข้อมูล
+        confirmButtonColor: '#10b981',
+        denyButtonColor: '#f43f5e',
+        customClass: {
+            popup: 'rounded-[2.5rem]',
+            confirmButton: 'rounded-2xl px-6 py-3 font-bold',
+            denyButton: 'rounded-2xl px-6 py-3 font-bold'
+        }
+    }).then((result) => {
+        if (result.isDenied) {
+            confirmClearScores(); // เรียกฟังก์ชันยืนยันการลบ
+        }
+    });
+}
+
+async function confirmClearScores() {
+    const gradeRaw = document.getElementById('select-grade').value;
+    const subRaw = document.getElementById('select-subject').value;
+
+    if (!gradeRaw || !subRaw) return;
+
+    const safeGrade = gradeRaw.replace(/[\.\/]/g, '_');
+    const safeSub = subRaw.replace(/[\.\/]/g, '_');
+
+    const { isConfirmed } = await Swal.fire({
+        title: 'ยืนยันการล้างข้อมูล?',
+        text: "คะแนนของนักเรียนทุกคนในวิชานี้จะถูกลบถาวร ไม่สามารถกู้คืนได้!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#f43f5e',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'ใช่, ลบทั้งหมด!',
+        cancelButtonText: 'ยกเลิก'
+    });
+
+    if (isConfirmed) {
+        try {
+            Swal.fire({ title: 'กำลังล้างข้อมูล...', didOpen: () => Swal.showLoading() });
+            
+            // สั่งลบ Path ของวิชานั้นๆ ใน exam_results
+            await db.ref(`exam_results/${safeGrade}/${safeSub}`).remove();
+            
+            await Swal.fire('สำเร็จ!', 'ล้างข้อมูลคะแนนเรียบร้อยแล้ว', 'success');
+        } catch (e) {
+            Swal.fire('Error', 'ไม่สามารถลบข้อมูลได้: ' + e.message, 'error');
+        }
+    }
+}
 
     </script>
 
